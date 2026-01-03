@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FermController Settings</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #1a202c;
+        }
+    </style>
+</head>
+
+<body class="min-h-screen flex items-center justify-center p-2">
+    <div class="bg-gray-800 shadow-xl rounded-xl p-4 max-w-3xl w-full text-gray-200">
+        <header class="flex justify-between items-center mb-4 pb-2 border-b border-gray-700">
+            <h1 class="text-2xl font-bold text-gray-100">Settings</h1>
+            <a href="/"
+                class="inline-block px-4 py-2 bg-blue-500 text-white text-sm font-medium rounded-md hover:bg-blue-600 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-opacity-75">
+                Back to Dashboard
+            </a>
+        </header>
+
+        <div id="restart-notice"
+            class="p-3 mb-4 text-sm text-yellow-300 bg-yellow-900/50 rounded-lg border border-yellow-500 flex justify-between items-center"
+            style="display: none;">
+            Settings saved. A restart is required for hardware changes to take effect.
+            <button onclick="this.parentElement.style.display='none'" class="text-xl font-bold">&times;</button>
+        </div>
+        <div id="save-notice"
+            class="p-3 mb-4 text-sm text-green-300 bg-green-900/50 rounded-lg border border-green-500 flex justify-between items-center"
+            style="display: none;">
+            Settings saved successfully. Live parameters have been updated.
+            <button onclick="this.parentElement.style.display='none'" class="text-xl font-bold">&times;</button>
+        </div>
+        <div id="error-notice"
+            class="p-3 mb-4 text-sm text-red-300 bg-red-900/50 rounded-lg border border-red-500 flex justify-between items-center"
+            style="display: none;">
+            Error saving settings.
+            <button onclick="this.parentElement.style.display='none'" class="text-xl font-bold">&times;</button>
+        </div>
+
+        <form id="settings-form">
+            <!-- Control Parameters Section -->
+            <div class="mb-6 p-4 bg-gray-700/50 rounded-lg border border-gray-600">
+                <h2 class="text-xl font-semibold mb-3 text-gray-100">Control Parameters (Live Update)</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="flex flex-col">
+                        <label for="temp-hysteresis" class="mb-1 text-sm font-medium text-gray-400">Fermenter Temp
+                            Hysteresis (°C)</label>
+                        <input type="number" step="0.1" id="temp-hysteresis" name="TEMP_HYSTERESIS" required
+                            class="bg-gray-900 border border-gray-600 text-white text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5">
+                        <span class="text-xs text-gray-500 mt-1">Deadband for heating/cooling control</span>
+                    </div>
+                    <div class="flex flex-col">
+                        <label for="glycol-temp-hysteresis" class="mb-1 text-sm font-medium text-gray-400">Glycol Temp
+                            Hysteresis (°C)</label>
+                        <input type="number" step="0.1" id="glycol-temp-hysteresis" name="GLYCOL_TEMP_HYSTERESIS"
+                            required
+                            class="bg-gray-900 border border-gray-600 text-white text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5">
+                        <span class="text-xs text-gray-500 mt-1">Deadband for chiller control</span>
+                    </div>
+                    <div class="flex flex-col">
+                        <label for="glycol-target-offset" class="mb-1 text-sm font-medium text-gray-400">Glycol Target
+                            Offset (°C)</label>
+                        <input type="number" step="0.1" id="glycol-target-offset" name="GLYCOL_TARGET_OFFSET" required
+                            class="bg-gray-900 border border-gray-600 text-white text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5">
+                        <span class="text-xs text-gray-500 mt-1">Glycol target = lowest fermenter - offset</span>
+                    </div>
+                    <div class="flex flex-col">
+                        <label for="min-glycol-temp" class="mb-1 text-sm font-medium text-gray-400">Minimum Glycol Temp
+                            (°C)</label>
+                        <input type="number" step="0.5" id="min-glycol-temp" name="MIN_GLYCOL_TEMP" required
+                            class="bg-gray-900 border border-gray-600 text-white text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5">
+                        <span class="text-xs text-gray-500 mt-1">Glycol will never go below this temp</span>
+                    </div>
+                    <div class="flex flex-col">
+                        <label for="read-interval-seconds" class="mb-1 text-sm font-medium text-gray-400">Control Loop
+                            Interval (seconds)</label>
+                        <input type="number" step="1" min="1" id="read-interval-seconds" name="READ_INTERVAL_SECONDS"
+                            required
+                            class="bg-gray-900 border border-gray-600 text-white text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5">
+                        <span class="text-xs text-gray-500 mt-1">How often to read sensors & update controls</span>
+                    </div>
+                    <div class="flex flex-col">
+                        <label for="default-target-glycol-temp" class="mb-1 text-sm font-medium text-gray-400">Default
+                            Glycol Target (°C)</label>
+                        <input type="number" step="0.5" id="default-target-glycol-temp"
+                            name="DEFAULT_TARGET_GLYCOL_TEMP" required
+                            class="bg-gray-900 border border-gray-600 text-white text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5">
+                        <span class="text-xs text-gray-500 mt-1">Initial glycol target at startup</span>
+                    </div>
+                    <div class="flex flex-col">
+                        <label for="control-mode" class="mb-1 text-sm font-medium text-gray-400">Control Mode</label>
+                        <select id="control-mode" name="CONTROL_MODE"
+                            class="bg-gray-900 border border-gray-600 text-white text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5">
+                            <option value="bangbang">Bang-Bang (On/Off with Hysteresis)</option>
+                            <option value="pid">PID (Proportional-Integral-Derivative)</option>
+                        </select>
+                        <span class="text-xs text-gray-500 mt-1">Requires restart to take effect</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PID Settings Section -->
+            <div id="pid-settings-section" class="mb-6 p-4 bg-gray-700/50 rounded-lg border border-gray-600">
+                <h2 class="text-xl font-semibold mb-3 text-gray-100">PID Controller Settings</h2>
+                <p class="text-sm text-gray-400 mb-3">These settings only apply when Control Mode is set to "PID".</p>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="flex flex-col">
+                        <label for="pid-kp" class="mb-1 text-sm font-medium text-gray-400">Kp (Proportional)</label>
+                        <input type="number" step="0.1" id="pid-kp" name="PID_KP"
+                            class="bg-gray-900 border border-gray-600 text-white text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5">
+                        <span class="text-xs text-gray-500 mt-1">Higher = faster response, may overshoot</span>
+                    </div>
+                    <div class="flex flex-col">
+                        <label for="pid-ki" class="mb-1 text-sm font-medium text-gray-400">Ki (Integral)</label>
+                        <input type="number" step="0.1" id="pid-ki" name="PID_KI"
+                            class="bg-gray-900 border border-gray-600 text-white text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5">
+                        <span class="text-xs text-gray-500 mt-1">Eliminates steady-state error</span>
+                    </div>
+                    <div class="flex flex-col">
+                        <label for="pid-kd" class="mb-1 text-sm font-medium text-gray-400">Kd (Derivative)</label>
+                        <input type="number" step="0.1" id="pid-kd" name="PID_KD"
+                            class="bg-gray-900 border border-gray-600 text-white text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5">
+                        <span class="text-xs text-gray-500 mt-1">Dampens oscillation</span>
+                    </div>
+                    <div class="flex flex-col">
+                        <label for="pid-duty-cycle" class="mb-1 text-sm font-medium text-gray-400">Duty Cycle Period
+                            (seconds)</label>
+                        <input type="number" step="1" min="10" id="pid-duty-cycle" name="PID_DUTY_CYCLE"
+                            class="bg-gray-900 border border-gray-600 text-white text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5">
+                        <span class="text-xs text-gray-500 mt-1">Time-proportioned output cycle</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Hardware Configuration Section -->
+            <div class="mb-6 p-4 bg-gray-700/50 rounded-lg border border-gray-600">
+                <h2 class="text-xl font-semibold mb-3 text-gray-100">Hardware Configuration (Restart Required)</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="flex flex-col">
+                        <label for="num-fermenters" class="mb-1 text-sm font-medium text-gray-400">Number of
+                            Fermenters</label>
+                        <input type="number" step="1" min="1" id="num-fermenters" name="NUM_FERMENTERS" required
+                            class="bg-gray-900 border border-gray-600 text-white text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5">
+                    </div>
+                    <div class="flex flex-col">
+                        <label for="chiller-relay-pin" class="mb-1 text-sm font-medium text-gray-400">Chiller Relay Pin
+                            (BCM)</label>
+                        <input type="number" step="1" id="chiller-relay-pin" name="CHILLER_RELAY_PIN" required
+                            class="bg-gray-900 border border-gray-600 text-white text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5">
+                    </div>
+                    <div class="flex flex-col">
+                        <label for="pump-relay-pin" class="mb-1 text-sm font-medium text-gray-400">Pump Relay Pin
+                            (BCM)</label>
+                        <input type="number" step="1" id="pump-relay-pin" name="PUMP_RELAY_PIN" required
+                            class="bg-gray-900 border border-gray-600 text-white text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5">
+                    </div>
+                    <div class="flex flex-col">
+                        <label for="glycol-sensor-id" class="mb-1 text-sm font-medium text-gray-400">Glycol Sensor ID
+                            (DS18B20)</label>
+                        <input type="text" id="glycol-sensor-id" name="GLYCOL_SENSOR_ID" required
+                            class="bg-gray-900 border border-gray-600 text-white text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5">
+                    </div>
+                    <div class="flex flex-col">
+                        <label for="solenoid-pins" class="mb-1 text-sm font-medium text-gray-400">Cooling Valve Pins
+                            (comma-separated)</label>
+                        <input type="text" id="solenoid-pins" name="SOLENOID_PINS" required
+                            class="bg-gray-900 border border-gray-600 text-white text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5">
+                        <span class="text-xs text-gray-500 mt-1">One per fermenter, e.g., 5, 6, 13</span>
+                    </div>
+                    <div class="flex flex-col">
+                        <label for="heater-pins" class="mb-1 text-sm font-medium text-gray-400">Heater Relay Pins
+                            (comma-separated)</label>
+                        <input type="text" id="heater-pins" name="HEATER_PINS" required
+                            class="bg-gray-900 border border-gray-600 text-white text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5">
+                        <span class="text-xs text-gray-500 mt-1">One per fermenter, e.g., 16, 20, 21</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PT100 Sensor Configuration (read-only info) -->
+            <div class="mb-6 p-4 bg-gray-700/50 rounded-lg border border-gray-600">
+                <h2 class="text-xl font-semibold mb-3 text-gray-100">PT100 Sensor Configuration</h2>
+                <p class="text-sm text-gray-400 mb-3">PT100 sensors are configured in <code
+                        class="bg-gray-900 px-1 rounded">app_config.py</code>. Each sensor is defined with SPI bus,
+                    device, and optional CS pin.</p>
+                <div id="pt100-sensors-display" class="text-sm font-mono bg-gray-900 p-3 rounded-lg text-gray-300">
+                    Loading...
+                </div>
+            </div>
+
+            <button type="submit"
+                class="w-full px-5 py-3 text-base font-medium text-center text-white bg-green-600 rounded-lg hover:bg-green-700 focus:ring-4 focus:outline-none focus:ring-green-500 transition-colors">Save
+                All Settings</button>
+        </form>
+    </div>
+
+    <script>
+        let initialConfig = {};
+
+        function showNotice(id, message = '') {
+            const notice = document.getElementById(id);
+            if (message) {
+                notice.firstChild.nodeValue = message + ' ';
+            }
+            notice.style.display = 'flex';
+            setTimeout(() => {
+                notice.style.display = 'none';
+            }, 6000);
+        }
+
+        function didRestartableSettingsChange(newData) {
+            if (parseInt(newData.NUM_FERMENTERS) !== initialConfig.NUM_FERMENTERS) return true;
+            if (parseInt(newData.CHILLER_RELAY_PIN) !== initialConfig.CHILLER_RELAY_PIN) return true;
+            if (parseInt(newData.PUMP_RELAY_PIN) !== initialConfig.PUMP_RELAY_PIN) return true;
+            if (newData.SOLENOID_PINS !== initialConfig.SOLENOID_PINS.join(', ')) return true;
+            if (newData.HEATER_PINS !== initialConfig.HEATER_PINS.join(', ')) return true;
+            if (newData.GLYCOL_SENSOR_ID !== initialConfig.GLYCOL_SENSOR_ID) return true;
+            return false;
+        }
+
+        document.addEventListener('DOMContentLoaded', function () {
+            fetch('/api/config')
+                .then(response => response.json())
+                .then(data => {
+                    initialConfig = data;
+                    // Control parameters
+                    document.getElementById('temp-hysteresis').value = data.TEMP_HYSTERESIS;
+                    document.getElementById('glycol-temp-hysteresis').value = data.GLYCOL_TEMP_HYSTERESIS;
+                    document.getElementById('glycol-target-offset').value = data.GLYCOL_TARGET_OFFSET;
+                    document.getElementById('min-glycol-temp').value = data.MIN_GLYCOL_TEMP;
+                    document.getElementById('read-interval-seconds').value = data.READ_INTERVAL_SECONDS;
+                    document.getElementById('default-target-glycol-temp').value = data.DEFAULT_TARGET_GLYCOL_TEMP;
+
+                    // Control mode and PID settings
+                    if (data.CONTROL_MODE) {
+                        document.getElementById('control-mode').value = data.CONTROL_MODE;
+                    }
+                    if (data.PID_PARAMS) {
+                        document.getElementById('pid-kp').value = data.PID_PARAMS.Kp || 20.0;
+                        document.getElementById('pid-ki').value = data.PID_PARAMS.Ki || 0.5;
+                        document.getElementById('pid-kd').value = data.PID_PARAMS.Kd || 5.0;
+                        document.getElementById('pid-duty-cycle').value = data.PID_PARAMS.duty_cycle_seconds || 60;
+                    }
+
+                    // Hardware configuration
+                    document.getElementById('num-fermenters').value = data.NUM_FERMENTERS;
+                    document.getElementById('chiller-relay-pin').value = data.CHILLER_RELAY_PIN;
+                    document.getElementById('pump-relay-pin').value = data.PUMP_RELAY_PIN;
+                    document.getElementById('glycol-sensor-id').value = data.GLYCOL_SENSOR_ID;
+                    document.getElementById('solenoid-pins').value = data.SOLENOID_PINS.join(', ');
+                    document.getElementById('heater-pins').value = data.HEATER_PINS.join(', ');
+
+                    // PT100 sensors display
+                    if (data.PT100_SENSORS) {
+                        const sensorText = data.PT100_SENSORS.map((s, i) =>
+                            `Fermenter ${i + 1}: bus=${s.bus}, device=${s.device}, cs_pin=${s.cs_pin || 'Native'}`
+                        ).join('\n');
+                        document.getElementById('pt100-sensors-display').textContent = sensorText;
+                    }
+                })
+                .catch(err => {
+                    console.error('Error loading config:', err);
+                    showNotice('error-notice', 'Failed to load configuration');
+                });
+
+            document.getElementById('settings-form').addEventListener('submit', function (event) {
+                event.preventDefault();
+                const formData = new FormData(event.target);
+                const data = Object.fromEntries(formData.entries());
+
+                fetch('/api/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) })
+                    .then(response => response.json())
+                    .then(result => {
+                        if (result.status === 'success') {
+                            didRestartableSettingsChange(data) ? showNotice('restart-notice') : showNotice('save-notice');
+                        } else {
+                            showNotice('error-notice', `Error: ${result.message}`);
+                        }
+                    }).catch(error => showNotice('error-notice', 'A network error occurred.'));
+            });
+        });
+    </script>
+</body>
+
+</html>

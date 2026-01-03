@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fermentation Profiles - FermController</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #1a202c;
+        }
+
+        .step-row {
+            animation: fadeIn 0.3s ease-in-out;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+    </style>
+</head>
+
+<body class="min-h-screen p-4">
+    <div class="max-w-6xl mx-auto">
+        <header class="flex justify-between items-center mb-6">
+            <h1 class="text-3xl font-bold text-gray-100">Fermentation Profiles</h1>
+            <a href="/" class="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors">
+                ← Back to Dashboard
+            </a>
+        </header>
+
+        <!-- Profile List -->
+        <div id="profileList" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+            <!-- Profiles will be loaded here -->
+        </div>
+
+        <!-- Create New Profile Button -->
+        <button id="createNewBtn"
+            class="w-full md:w-auto px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-500 transition-colors font-semibold mb-6">
+            + Create New Profile
+        </button>
+
+        <!-- Profile Editor Modal -->
+        <div id="editorModal"
+            class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div class="bg-gray-800 rounded-xl p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+                <h2 id="editorTitle" class="text-2xl font-bold text-gray-100 mb-4">Edit Profile</h2>
+
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-300 mb-1">Profile Name</label>
+                        <input type="text" id="profileName"
+                            class="bg-gray-700 text-white rounded-md w-full p-2 focus:ring-2 focus:ring-blue-500"
+                            placeholder="e.g., Belgian Tripel">
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-300 mb-1">Description</label>
+                        <textarea id="profileDescription"
+                            class="bg-gray-700 text-white rounded-md w-full p-2 focus:ring-2 focus:ring-blue-500"
+                            rows="2" placeholder="Brief description of this fermentation profile"></textarea>
+                    </div>
+
+                    <div>
+                        <div class="flex justify-between items-center mb-2">
+                            <label class="block text-sm font-medium text-gray-300">Fermentation Steps</label>
+                            <button id="addStepBtn"
+                                class="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-500 transition-colors">
+                                + Add Step
+                            </button>
+                        </div>
+
+                        <div id="stepsContainer" class="space-y-2">
+                            <!-- Steps will be added here -->
+                        </div>
+                    </div>
+
+                    <!-- Quick Add Buttons -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-300 mb-2">Quick Add Common Steps</label>
+                        <div class="flex flex-wrap gap-2">
+                            <button
+                                class="quick-step px-2 py-1 bg-gray-600 text-white text-xs rounded hover:bg-gray-500"
+                                data-step='{"name":"Pitch","target_temp":18,"duration_hours":0,"ramp_hours":0}'>Pitch
+                                (18°C)</button>
+                            <button
+                                class="quick-step px-2 py-1 bg-gray-600 text-white text-xs rounded hover:bg-gray-500"
+                                data-step='{"name":"Primary","target_temp":20,"duration_hours":72,"ramp_hours":0}'>Primary
+                                (20°C, 3d)</button>
+                            <button
+                                class="quick-step px-2 py-1 bg-gray-600 text-white text-xs rounded hover:bg-gray-500"
+                                data-step='{"name":"Free Rise","target_temp":22,"duration_hours":48,"ramp_hours":24}'>Free
+                                Rise (22°C)</button>
+                            <button
+                                class="quick-step px-2 py-1 bg-gray-600 text-white text-xs rounded hover:bg-gray-500"
+                                data-step='{"name":"D-Rest","target_temp":18,"duration_hours":48,"ramp_hours":24}'>D-Rest
+                                (18°C)</button>
+                            <button
+                                class="quick-step px-2 py-1 bg-gray-600 text-white text-xs rounded hover:bg-gray-500"
+                                data-step='{"name":"Acidification","target_temp":35,"duration_hours":48,"ramp_hours":0}'>Acidification
+                                (35°C)</button>
+                            <button
+                                class="quick-step px-2 py-1 bg-gray-600 text-white text-xs rounded hover:bg-gray-500"
+                                data-step='{"name":"Cold Crash","target_temp":2,"duration_hours":48,"ramp_hours":12}'>Cold
+                                Crash (2°C)</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex justify-end gap-3 mt-6">
+                    <button id="cancelBtn"
+                        class="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-500 transition-colors">Cancel</button>
+                    <button id="saveBtn"
+                        class="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-500 transition-colors">Save
+                        Profile</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Delete Confirmation Modal -->
+        <div id="deleteModal"
+            class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div class="bg-gray-800 rounded-xl p-6 max-w-md w-full">
+                <h2 class="text-xl font-bold text-gray-100 mb-4">Delete Profile?</h2>
+                <p class="text-gray-300 mb-6">Are you sure you want to delete "<span id="deleteProfileName"></span>"?
+                    This cannot be undone.</p>
+                <div class="flex justify-end gap-3">
+                    <button id="cancelDeleteBtn"
+                        class="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-500 transition-colors">Cancel</button>
+                    <button id="confirmDeleteBtn"
+                        class="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-500 transition-colors">Delete</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let profiles = [];
+        let editingProfileId = null;
+        let deleteProfileId = null;
+
+        // Load profiles on page load
+        async function loadProfiles() {
+            try {
+                const response = await fetch('/api/profiles');
+                profiles = await response.json();
+                renderProfileList();
+            } catch (error) {
+                console.error('Error loading profiles:', error);
+            }
+        }
+
+        function renderProfileList() {
+            const container = document.getElementById('profileList');
+            container.innerHTML = profiles.map(profile => `
+                <div class="bg-gray-800 rounded-lg p-4 border border-gray-700 hover:border-blue-500 transition-colors">
+                    <h3 class="text-lg font-semibold text-gray-100 mb-1">${escapeHtml(profile.name)}</h3>
+                    <p class="text-sm text-gray-400 mb-3">${escapeHtml(profile.description || '')}</p>
+                    <div class="text-xs text-gray-500 mb-3">
+                        ${profile.steps.length} steps • ${formatDuration(getTotalDuration(profile))}
+                    </div>
+                    <div class="flex flex-wrap gap-1 mb-3">
+                        ${profile.steps.map(step => `
+                            <span class="px-2 py-1 bg-gray-700 text-gray-300 text-xs rounded">${escapeHtml(step.name)} ${step.target_temp}°C</span>
+                        `).join('')}
+                    </div>
+                    <div class="flex gap-2">
+                        <button onclick="editProfile('${profile.id}')" class="flex-1 px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-500 transition-colors">Edit</button>
+                        <button onclick="duplicateProfile('${profile.id}')" class="px-3 py-1 bg-gray-600 text-white text-sm rounded hover:bg-gray-500 transition-colors">Copy</button>
+                        <button onclick="showDeleteModal('${profile.id}')" class="px-3 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-500 transition-colors">Delete</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function getTotalDuration(profile) {
+            return profile.steps.reduce((total, step) =>
+                total + (step.duration_hours || 0) + (step.ramp_hours || 0), 0);
+        }
+
+        function formatDuration(hours) {
+            if (hours < 24) return `${hours}h`;
+            const days = Math.floor(hours / 24);
+            const remainingHours = hours % 24;
+            return remainingHours > 0 ? `${days}d ${remainingHours}h` : `${days}d`;
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Modal functions
+        function showEditorModal(profile = null) {
+            editingProfileId = profile ? profile.id : null;
+            document.getElementById('editorTitle').textContent = profile ? 'Edit Profile' : 'Create New Profile';
+            document.getElementById('profileName').value = profile ? profile.name : '';
+            document.getElementById('profileDescription').value = profile ? (profile.description || '') : '';
+
+            const stepsContainer = document.getElementById('stepsContainer');
+            stepsContainer.innerHTML = '';
+
+            if (profile && profile.steps) {
+                profile.steps.forEach(step => addStepRow(step));
+            }
+
+            document.getElementById('editorModal').classList.remove('hidden');
+        }
+
+        function hideEditorModal() {
+            document.getElementById('editorModal').classList.add('hidden');
+            editingProfileId = null;
+        }
+
+        function addStepRow(step = {}) {
+            const container = document.getElementById('stepsContainer');
+            const index = container.children.length;
+            const row = document.createElement('div');
+            row.className = 'step-row bg-gray-700 rounded-lg p-3 flex flex-wrap gap-2 items-center';
+            row.innerHTML = `
+                <input type="text" placeholder="Step Name" value="${escapeHtml(step.name || '')}" 
+                    class="step-name bg-gray-600 text-white rounded px-2 py-1 text-sm flex-grow min-w-[100px]">
+                <div class="flex items-center gap-1">
+                    <input type="number" step="0.5" placeholder="Temp" value="${step.target_temp || ''}" 
+                        class="step-temp bg-gray-600 text-white rounded px-2 py-1 text-sm w-16 text-center">
+                    <span class="text-gray-400 text-sm">°C</span>
+                </div>
+                <div class="flex items-center gap-1">
+                    <input type="number" placeholder="Hold" value="${step.duration_hours || 0}" 
+                        class="step-duration bg-gray-600 text-white rounded px-2 py-1 text-sm w-14 text-center">
+                    <span class="text-gray-400 text-sm">h hold</span>
+                </div>
+                <div class="flex items-center gap-1">
+                    <input type="number" placeholder="Ramp" value="${step.ramp_hours || 0}" 
+                        class="step-ramp bg-gray-600 text-white rounded px-2 py-1 text-sm w-14 text-center">
+                    <span class="text-gray-400 text-sm">h ramp</span>
+                </div>
+                <button onclick="this.closest('.step-row').remove()" class="px-2 py-1 bg-red-600 text-white rounded hover:bg-red-500 text-sm">✕</button>
+                <button onclick="moveStepUp(this)" class="px-2 py-1 bg-gray-600 text-white rounded hover:bg-gray-500 text-sm">↑</button>
+                <button onclick="moveStepDown(this)" class="px-2 py-1 bg-gray-600 text-white rounded hover:bg-gray-500 text-sm">↓</button>
+            `;
+            container.appendChild(row);
+        }
+
+        function moveStepUp(btn) {
+            const row = btn.closest('.step-row');
+            const prev = row.previousElementSibling;
+            if (prev) {
+                row.parentNode.insertBefore(row, prev);
+            }
+        }
+
+        function moveStepDown(btn) {
+            const row = btn.closest('.step-row');
+            const next = row.nextElementSibling;
+            if (next) {
+                row.parentNode.insertBefore(next, row);
+            }
+        }
+
+        function getStepsFromEditor() {
+            const rows = document.querySelectorAll('.step-row');
+            return Array.from(rows).map(row => ({
+                name: row.querySelector('.step-name').value.trim(),
+                target_temp: parseFloat(row.querySelector('.step-temp').value) || 18,
+                duration_hours: parseInt(row.querySelector('.step-duration').value) || 0,
+                ramp_hours: parseInt(row.querySelector('.step-ramp').value) || 0
+            })).filter(step => step.name);
+        }
+
+        async function saveProfile() {
+            const name = document.getElementById('profileName').value.trim();
+            const description = document.getElementById('profileDescription').value.trim();
+            const steps = getStepsFromEditor();
+
+            if (!name) {
+                alert('Please enter a profile name');
+                return;
+            }
+
+            if (steps.length === 0) {
+                alert('Please add at least one step');
+                return;
+            }
+
+            try {
+                const method = editingProfileId ? 'PUT' : 'POST';
+                const url = editingProfileId ? `/api/profiles/${editingProfileId}` : '/api/profiles';
+
+                const response = await fetch(url, {
+                    method: method,
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, description, steps })
+                });
+
+                if (response.ok) {
+                    hideEditorModal();
+                    loadProfiles();
+                } else {
+                    const error = await response.json();
+                    alert('Error saving profile: ' + (error.message || 'Unknown error'));
+                }
+            } catch (error) {
+                console.error('Error saving profile:', error);
+                alert('Error saving profile');
+            }
+        }
+
+        function editProfile(profileId) {
+            const profile = profiles.find(p => p.id === profileId);
+            if (profile) {
+                showEditorModal(profile);
+            }
+        }
+
+        async function duplicateProfile(profileId) {
+            const profile = profiles.find(p => p.id === profileId);
+            if (profile) {
+                const newProfile = {
+                    ...profile,
+                    name: profile.name + ' (Copy)'
+                };
+                delete newProfile.id;
+
+                try {
+                    const response = await fetch('/api/profiles', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(newProfile)
+                    });
+                    if (response.ok) {
+                        loadProfiles();
+                    }
+                } catch (error) {
+                    console.error('Error duplicating profile:', error);
+                }
+            }
+        }
+
+        function showDeleteModal(profileId) {
+            deleteProfileId = profileId;
+            const profile = profiles.find(p => p.id === profileId);
+            document.getElementById('deleteProfileName').textContent = profile ? profile.name : '';
+            document.getElementById('deleteModal').classList.remove('hidden');
+        }
+
+        function hideDeleteModal() {
+            document.getElementById('deleteModal').classList.add('hidden');
+            deleteProfileId = null;
+        }
+
+        async function confirmDelete() {
+            if (!deleteProfileId) return;
+
+            try {
+                const response = await fetch(`/api/profiles/${deleteProfileId}`, {
+                    method: 'DELETE'
+                });
+                if (response.ok) {
+                    hideDeleteModal();
+                    loadProfiles();
+                }
+            } catch (error) {
+                console.error('Error deleting profile:', error);
+            }
+        }
+
+        // Event Listeners
+        document.getElementById('createNewBtn').addEventListener('click', () => showEditorModal());
+        document.getElementById('cancelBtn').addEventListener('click', hideEditorModal);
+        document.getElementById('saveBtn').addEventListener('click', saveProfile);
+        document.getElementById('addStepBtn').addEventListener('click', () => addStepRow());
+        document.getElementById('cancelDeleteBtn').addEventListener('click', hideDeleteModal);
+        document.getElementById('confirmDeleteBtn').addEventListener('click', confirmDelete);
+
+        // Quick step buttons
+        document.querySelectorAll('.quick-step').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const step = JSON.parse(btn.dataset.step);
+                addStepRow(step);
+            });
+        });
+
+        // Close modals on escape key
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                hideEditorModal();
+                hideDeleteModal();
+            }
+        });
+
+        // Initialize
+        loadProfiles();
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>FermController</title>
+
+    <!-- PWA Meta Tags -->
+    <meta name="theme-color" content="#f97316">
+    <meta name="description" content="Fermentation Temperature Control System">
+    <link rel="manifest" href="/static/manifest.json">
+
+    <!-- iOS Support -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="FermCtrl">
+    <link rel="apple-touch-icon" href="/static/icon-192.png">
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #1a202c;
+            /* Dark background */
+        }
+
+        /* Custom scrollbar for better aesthetics */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #2d3748;
+            /* Darker scrollbar track */
+            border-radius: 10px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #4a5568;
+            /* Darker scrollbar thumb */
+            border-radius: 10px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #606f8b;
+        }
+
+        /* Removed .temp-control-btn as styles are now applied inline to buttons */
+    </style>
+</head>
+
+<body class="min-h-screen flex items-center justify-center p-2">
+    <div class="bg-gray-800 shadow-xl rounded-xl p-4 max-w-3xl w-full">
+        <header class="flex justify-end items-center mb-4 pb-2 border-b border-gray-700">
+            <div class="flex items-center space-x-4">
+                <span class="text-sm text-gray-400">Last updated: <span id="lastUpdated">--:--:--</span></span>
+                <a href="/graph"
+                    class="inline-block p-2 bg-green-500 text-white rounded-full hover:bg-green-600 transition-colors focus:outline-none focus:ring-2 focus:ring-green-400 focus:ring-opacity-75">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                        xmlns="http://www.w3.org/2000/svg">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z"></path>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z"></path>
+                    </svg>
+                </a>
+                <a href="/settings"
+                    class="inline-block p-2 bg-blue-500 text-white rounded-full hover:bg-blue-600 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-opacity-75">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                        xmlns="http://www.w3.org/2000/svg">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37a1.724 1.724 0 002.572-1.065z">
+                        </path>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                    </svg>
+                </a>
+                <a href="/profiles"
+                    class="inline-block p-2 bg-orange-500 text-white rounded-full hover:bg-orange-600 transition-colors focus:outline-none focus:ring-2 focus:ring-orange-400 focus:ring-opacity-75"
+                    title="Fermentation Profiles">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                        xmlns="http://www.w3.org/2000/svg">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z">
+                        </path>
+                    </svg>
+                </a>
+                <button onclick="window.location.reload();"
+                    class="inline-block p-2 bg-purple-500 text-white rounded-full hover:bg-purple-600 transition-colors focus:outline-none focus:ring-2 focus:ring-purple-400 focus:ring-opacity-75"
+                    title="Refresh Page">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                        xmlns="http://www.w3.org/2000/svg">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15">
+                        </path>
+                    </svg>
+                </button>
+            </div>
+        </header>
+
+        <div id="fermentersContainer" class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4"></div>
+
+        <div class="p-4 bg-gradient-to-br from-gray-700 to-gray-800 rounded-lg shadow-md">
+            <h2 class="text-xl font-semibold text-gray-200 mb-2 flex items-center">
+                <svg class="w-5 h-5 mr-2 text-blue-400" fill="currentColor" viewBox="0 0 20 20"
+                    xmlns="http://www.w3.org/2000/svg">
+                    <path fill-rule="evenodd"
+                        d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z"
+                        clip-rule="evenodd"></path>
+                </svg>
+                Glycol Chiller
+            </h2>
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div class="flex items-center justify-between p-2 bg-gray-700 rounded-md shadow-sm">
+                    <span class="text-sm font-medium text-gray-300">Bath:</span>
+                    <span id="glycolTemp" class="text-lg font-bold text-blue-300">--.- °C</span>
+                </div>
+                <div class="flex items-center justify-between p-2 bg-gray-700 rounded-md shadow-sm">
+                    <span class="text-sm font-medium text-gray-300">Target:</span>
+                    <span id="target-glycol-temp" class="text-lg font-bold text-blue-300">--.- °C</span>
+                </div>
+                <div class="flex items-center justify-between p-2 bg-gray-700 rounded-md shadow-sm">
+                    <span class="text-sm font-medium text-gray-300">Pump:</span>
+                    <span id="pumpStatus" class="text-base font-bold text-gray-400">OFF</span>
+                </div>
+                <div class="flex items-center justify-between p-2 bg-gray-700 rounded-md shadow-sm">
+                    <span class="text-sm font-medium text-gray-300">Chiller:</span>
+                    <span id="chillerStatus" class="text-base font-bold text-gray-400">OFF</span>
+                </div>
+
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // Global variable to store the number of fermenters, passed from Flask
+        const NUM_FERMENTERS = {{ num_fermenters | tojson }};
+        console.log("NUM_FERMENTERS loaded:", NUM_FERMENTERS);
+        const READ_INTERVAL_MS = {{ read_interval_seconds | tojson }} * 1000; // Match control loop rate
+        const TEMP_STEP = 0.5; // Increment/decrement by 0.5 degrees Celsius
+
+        // Store current editable target temperatures locally
+        const editableTargetTemps = Array(NUM_FERMENTERS).fill(0.0);
+
+
+        // Function to create a fermenter card
+        function createFermenterCard(index) {
+            const card = document.createElement('div');
+            card.className = 'bg-gray-700 rounded-lg shadow-lg p-4 border border-gray-600 hover:shadow-xl transition-shadow duration-300';
+            card.innerHTML = `
+                <div class="flex items-center justify-between mb-2">
+                    <h3 class="text-lg font-bold text-gray-100">Fermenter ${index + 1}</h3>
+                    <label for="statusToggle${index}" class="inline-flex relative items-center cursor-pointer">
+                        <input type="checkbox" value="" id="statusToggle${index}" class="sr-only peer" onchange="toggleFermenterStatus(${index}, this.checked)">
+                        <div class="w-11 h-6 bg-gray-500 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-400 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-500"></div>
+                    </label>
+                </div>
+                <span id="statusText${index}" class="hidden"></span>
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-sm text-gray-300">Temperature:</span>
+                    <span id="currentTemp${index}" class="text-lg font-bold text-green-300">--.- °C</span>
+                </div>
+                <div class="flex gap-2 mb-2">
+                    <!-- Cooling Box -->
+                    <div id="coolingIcon${index}" class="flex-1 flex items-center justify-center gap-2 p-2 bg-gray-600 rounded-md text-gray-500" title="Cooling">
+                        <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 448 512" xmlns="http://www.w3.org/2000/svg">
+                            <!-- Font Awesome snowflake icon -->
+                            <path d="M224 0c13.3 0 24 10.7 24 24V70.1l23-23c9.4-9.4 24.6-9.4 33.9 0s9.4 24.6 0 33.9l-57 57v76.5l66.2-38.2 20.9-77.8c3.4-12.8 16.6-20.4 29.4-17s20.4 16.6 17 29.4L373.2 140l60.5-34.9c11.5-6.6 26.2-2.7 32.8 8.8s2.7 26.2-8.8 32.8L397.2 181.6l31.2 8.4c12.8 3.4 20.4 16.6 17 29.4s-16.6 20.4-29.4 17l-77.8-20.9L272 253.6V256v2.4l66.2 38.2 77.8-20.9c12.8-3.4 26 4.2 29.4 17s-4.2 26-17 29.4l-31.2 8.4 60.5 34.9c11.5 6.6 15.4 21.3 8.8 32.8s-21.3 15.4-32.8 8.8L373.2 372l8.4 31.2c3.4 12.8-4.2 26-17 29.4s-26-4.2-29.4-17l-20.9-77.8L248 299.6V376.1l57 57c9.4 9.4 9.4 24.6 0 33.9s-24.6 9.4-33.9 0l-23-23V488c0 13.3-10.7 24-24 24s-24-10.7-24-24V441.9l-23 23c-9.4 9.4-24.6 9.4-33.9 0s-9.4-24.6 0-33.9l57-57V299.6l-66.2 38.2-20.9 77.8c-3.4 12.8-16.6 20.4-29.4 17s-20.4-16.6-17-29.4l8.4-31.2L14.3 406.8c-11.5 6.6-26.2 2.7-32.8-8.8s-2.7-26.2 8.8-32.8l60.5-34.9-31.2-8.4c-12.8-3.4-20.4-16.6-17-29.4s16.6-20.4 29.4-17l77.8 20.9L176 258.4V256v-2.4l-66.2-38.2L31.9 236.3c-12.8 3.4-26-4.2-29.4-17s4.2-26 17-29.4l31.2-8.4L-9.8 146.6c-11.5-6.6-15.4-21.3-8.8-32.8s21.3-15.4 32.8-8.8L74.8 140l-8.4-31.2c-3.4-12.8 4.2-26 17-29.4s26 4.2 29.4 17l20.9 77.8L200 212.4V135.9L143 79c-9.4-9.4-9.4-24.6 0-33.9s24.6-9.4 33.9 0l23 23V24c0-13.3 10.7-24 24-24z"/>
+                        </svg>
+                    </div>
+                    <!-- Heating Box -->
+                    <div id="heatingIcon${index}" class="flex-1 flex items-center justify-center gap-2 p-2 bg-gray-600 rounded-md text-gray-500" title="Heating">
+                        <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M12 23C16.1421 23 19.5 19.6421 19.5 15.5C19.5 14.1316 19.1253 12.8502 18.4696 11.7482C17.9827 10.9271 17.3367 10.2137 16.5667 9.65C16.5 10.3 16.2 11.3 15.3333 12C15.3333 10.5 14.8333 8.5 13 7C13.1667 8 13.1667 9.5 12 10.5C11.3333 9.66667 10.3333 8.33333 10.3333 6C10.3333 4.66667 10.6667 3.33333 11.3333 2C9.16667 3 4.5 6.5 4.5 15.5C4.5 19.6421 7.85786 23 12 23Z"/>
+                        </svg>
+                    </div>
+                </div>
+
+                <!-- Profile Section -->
+                <div id="profileSection${index}" class="p-2 bg-gray-600 rounded-md mb-2">
+                    <div class="flex items-center justify-between mb-1">
+                        <span class="text-sm font-medium text-gray-300">Profile:</span>
+                        <span id="profileName${index}" class="text-sm font-semibold text-orange-300">None</span>
+                    </div>
+                    <div id="profileInfo${index}" class="hidden text-xs text-gray-400">
+                        <div>Step: <span id="profileStep${index}">-</span></div>
+                        <div>Remaining: <span id="profileRemaining${index}">-</span></div>
+                    </div>
+                    <div class="flex gap-1 mt-2">
+                        <select id="profileSelect${index}" class="flex-1 bg-gray-700 text-white text-xs rounded p-1">
+                            <option value="">Select Profile</option>
+                        </select>
+                        <button id="profileStartBtn${index}" onclick="startProfile(${index})" class="px-3 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-500" title="Start Profile">
+                            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                        </button>
+                        <button id="profileSkipBtn${index}" onclick="skipProfileStep(${index})" class="hidden px-3 py-1 bg-yellow-600 text-white text-xs rounded hover:bg-yellow-500" title="Skip to Next Step">
+                            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
+                        </button>
+                        <button id="profileStopBtn${index}" onclick="stopProfile(${index})" class="hidden px-3 py-1 bg-red-600 text-white text-xs rounded hover:bg-red-500" title="Stop Profile">
+                            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12"/></svg>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="flex items-center justify-between gap-2 mb-2">
+                    <button onclick="decrementTarget(${index})" class="w-16 h-16 text-2xl font-bold text-white rounded-md shadow-md transition duration-300 ease-in-out transform hover:scale-105 active:scale-95 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 bg-blue-400 hover:bg-blue-500 flex items-center justify-center">-</button>
+                    <span id="editableTargetTemp${index}" class="text-xl font-bold text-indigo-300 flex-grow text-center">--.-</span>
+                    <button onclick="incrementTarget(${index})" class="w-16 h-16 text-2xl font-bold text-white rounded-md shadow-md transition duration-300 ease-in-out transform hover:scale-105 active:scale-95 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 bg-blue-400 hover:bg-blue-500 flex items-center justify-center">+</button>
+                </div>
+            `;
+            return card;
+        }
+
+        // Store available profiles
+        let availableProfiles = [];
+
+        // Load profiles from API
+        async function loadProfiles() {
+            try {
+                const response = await fetch('/api/profiles');
+                availableProfiles = await response.json();
+                // Populate dropdowns for each fermenter
+                for (let i = 0; i < NUM_FERMENTERS; i++) {
+                    const select = document.getElementById(`profileSelect${i}`);
+                    if (select) {
+                        select.innerHTML = '<option value="">Select Profile</option>';
+                        availableProfiles.forEach(profile => {
+                            const option = document.createElement('option');
+                            option.value = profile.id;
+                            option.textContent = profile.name;
+                            select.appendChild(option);
+                        });
+                    }
+                }
+            } catch (error) {
+                console.error('Error loading profiles:', error);
+            }
+        }
+
+        // Start a profile on a fermenter
+        async function startProfile(fermenterIndex) {
+            const select = document.getElementById(`profileSelect${fermenterIndex}`);
+            const profileId = select.value;
+            if (!profileId) {
+                alert('Please select a profile first');
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/fermenter/${fermenterIndex}/profile`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ profile_id: profileId })
+                });
+
+                if (response.ok) {
+                    fetchTemperatures();
+                } else {
+                    const error = await response.json();
+                    alert('Error: ' + (error.message || 'Failed to start profile'));
+                }
+            } catch (error) {
+                console.error('Error starting profile:', error);
+            }
+        }
+
+        // Stop a profile on a fermenter
+        async function stopProfile(fermenterIndex) {
+            try {
+                const response = await fetch(`/api/fermenter/${fermenterIndex}/profile`, {
+                    method: 'DELETE'
+                });
+
+                if (response.ok) {
+                    fetchTemperatures();
+                }
+            } catch (error) {
+                console.error('Error stopping profile:', error);
+            }
+        }
+
+        // Skip to the next step in the profile
+        async function skipProfileStep(fermenterIndex) {
+            try {
+                const response = await fetch(`/api/fermenter/${fermenterIndex}/profile/skip`, {
+                    method: 'POST'
+                });
+                const data = await response.json();
+                if (response.ok) {
+                    console.log(data.message);
+                    fetchTemperatures();
+                } else {
+                    console.error('Error skipping step:', data.message);
+                    alert(data.message);
+                }
+            } catch (error) {
+                console.error('Error skipping step:', error);
+            }
+        }
+
+        // Format hours to human-readable string
+        function formatTimeRemaining(hours) {
+            if (hours === null || hours === undefined) return '-';
+            if (hours < 1) return `${Math.round(hours * 60)}m`;
+            if (hours < 24) return `${Math.round(hours)}h`;
+            const days = Math.floor(hours / 24);
+            const remainingHours = Math.round(hours % 24);
+            return remainingHours > 0 ? `${days}d ${remainingHours}h` : `${days}d`;
+        }
+
+        // Initialize fermenter cards on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            const fermentersContainer = document.getElementById('fermentersContainer');
+            for (let i = 0; i < NUM_FERMENTERS; i++) {
+                fermentersContainer.appendChild(createFermenterCard(i));
+                editableTargetTemps[i] = 18.0; // Initialize editable temp with a default
+                updateEditableTargetDisplay(i);
+            }
+            loadProfiles(); // Load available profiles
+            fetchTemperatures(); // Initial fetch
+            setInterval(fetchTemperatures, READ_INTERVAL_MS); // Poll every X seconds
+        });
+
+        function updateEditableTargetDisplay(index) {
+            const displayElement = document.getElementById(`editableTargetTemp${index}`);
+            displayElement.textContent = editableTargetTemps[index].toFixed(1);
+        }
+
+        function incrementTarget(index) {
+            editableTargetTemps[index] += TEMP_STEP;
+            updateEditableTargetDisplay(index);
+            setTarget(index);
+        }
+
+        function decrementTarget(index) {
+            editableTargetTemps[index] -= TEMP_STEP;
+            updateEditableTargetDisplay(index);
+            setTarget(index);
+        }
+
+        // Function to send the set target temperature to the backend
+        async function setTarget(index) {
+            const newTarget = editableTargetTemps[index];
+            console.log(`Setting target for Fermenter ${index + 1} to ${newTarget}°C`);
+
+            try {
+                const response = await fetch('/api/set_target', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        fermenter_index: index,
+                        target_temp: newTarget
+                    }),
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+                }
+
+                const result = await response.json();
+                // showMessageBox(result.message, 'success');
+                fetchTemperatures(); // Refresh current and target temps after setting
+            } catch (error) {
+                console.error("Error setting target temperature:", error);
+                // showMessageBox(`Failed to set target temperature: ${error.message}`, 'error');
+            }
+        }
+
+        // Function to toggle fermenter active status
+        async function toggleFermenterStatus(index, isActive) {
+            console.log(`Toggling Fermenter ${index + 1} status to: ${isActive}`);
+
+            try {
+                const response = await fetch('/api/set_fermenter_status', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        fermenter_index: index,
+                        is_active: isActive
+                    }),
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+                }
+
+                const result = await response.json();
+                // showMessageBox(result.message, 'success');
+                // Update the text next to the toggle
+                document.getElementById(`statusText${index}`).textContent = isActive ? 'Active' : 'Inactive';
+                // Optionally, re-fetch all data to ensure UI consistency, or rely on the next interval.
+                // fetchTemperatures(); 
+            } catch (error) {
+                console.error("Error toggling fermenter status:", error);
+                // showMessageBox(`Failed to toggle status: ${error.message}`, 'error');
+                // Revert the switch if the API call failed
+                document.getElementById(`statusToggle${index}`).checked = !isActive;
+            }
+        }
+
+
+        // Function to fetch temperatures from the backend API
+        async function fetchTemperatures() {
+            try {
+                const response = await fetch('/api/temperatures');
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const data = await response.json();
+                console.log("Fetched data:", data);
+                console.log("Received solenoid_states:", data.solenoid_states); // Added for debugging
+                console.log("Received target_fermenters:", data.target_fermenters); // Added for debugging
+                console.log("Received fermenter_active_status:", data.fermenter_active_status);
+
+
+                // Update Glycol Chiller status
+                const glycolTempElement = document.getElementById('glycolTemp');
+                if (data.glycol_bath === null) {
+                    glycolTempElement.textContent = "NC";
+                } else {
+                    glycolTempElement.textContent = `${data.glycol_bath.toFixed(1)} °C`;
+                }
+                const targetGlycolTempElement = document.getElementById('target-glycol-temp');
+                if (data.target_glycol_bath === null) {
+                    targetGlycolTempElement.textContent = "NA";
+                } else {
+                    targetGlycolTempElement.textContent = `${data.target_glycol_bath.toFixed(1)} °C`;
+                }
+                const chillerStatusElement = document.getElementById('chillerStatus');
+                chillerStatusElement.textContent = data.chiller_on ? 'ON' : 'OFF';
+                chillerStatusElement.className = `text-xl font-bold ${data.chiller_on ? 'text-red-400' : 'text-gray-400'}`;
+
+                const pumpStatusElement = document.getElementById('pumpStatus');
+                pumpStatusElement.textContent = data.pump_on ? 'ON' : 'OFF';
+                pumpStatusElement.className = `text-xl font-bold ${data.pump_on ? 'text-red-400' : 'text-gray-400'}`;
+
+
+
+                // Update Fermenter data
+                data.fermenters.forEach((temp, index) => {
+                    const currentTempElement = document.getElementById(`currentTemp${index}`);
+                    const statusToggle = document.getElementById(`statusToggle${index}`);
+                    const statusText = document.getElementById(`statusText${index}`);
+
+                    if (temp === null) {
+                        currentTempElement.textContent = "NC";
+                        statusToggle.checked = false;
+                        statusToggle.disabled = true;
+                        statusText.textContent = 'Inactive';
+                    } else {
+                        currentTempElement.textContent = `${temp.toFixed(1)} °C`;
+                        statusToggle.disabled = false;
+                        // The element 'targetTempDisplay${index}' does not exist.
+                        editableTargetTemps[index] = data.target_fermenters[index]; // Update local cache from server
+                        updateEditableTargetDisplay(index); // Refresh the displayed target temperature
+
+                        // Update control icons
+                        const coolingIcon = document.getElementById(`coolingIcon${index}`);
+                        coolingIcon.className = data.solenoid_states[index]
+                            ? 'flex-1 flex items-center justify-center gap-2 p-2 bg-blue-900 rounded-md text-blue-300'
+                            : 'flex-1 flex items-center justify-center gap-2 p-2 bg-gray-600 rounded-md text-gray-500';
+
+                        const heatingIcon = document.getElementById(`heatingIcon${index}`);
+                        heatingIcon.className = data.heater_states[index]
+                            ? 'flex-1 flex items-center justify-center gap-2 p-2 bg-red-900 rounded-md text-red-300'
+                            : 'flex-1 flex items-center justify-center gap-2 p-2 bg-gray-600 rounded-md text-gray-500';
+
+                        statusText.textContent = data.fermenter_active_status[index] ? 'Active' : 'Inactive';
+                        statusToggle.checked = data.fermenter_active_status[index];
+                    }
+
+                    // Update profile display
+                    const profileNameEl = document.getElementById(`profileName${index}`);
+                    const profileInfoEl = document.getElementById(`profileInfo${index}`);
+                    const profileStepEl = document.getElementById(`profileStep${index}`);
+                    const profileRemainingEl = document.getElementById(`profileRemaining${index}`);
+
+                    const profileData = data.fermenter_profiles ? data.fermenter_profiles[index] : null;
+
+                    const profileSelect = document.getElementById(`profileSelect${index}`);
+                    const startBtn = document.getElementById(`profileStartBtn${index}`);
+                    const skipBtn = document.getElementById(`profileSkipBtn${index}`);
+                    const stopBtn = document.getElementById(`profileStopBtn${index}`);
+
+                    if (profileData && profileData.profile_name) {
+                        profileNameEl.textContent = profileData.profile_name;
+                        profileNameEl.className = 'text-sm font-semibold text-green-400';
+                        profileInfoEl.classList.remove('hidden');
+                        profileStepEl.textContent = profileData.current_step_name || `Step ${profileData.current_step + 1}`;
+                        profileRemainingEl.textContent = formatTimeRemaining(profileData.time_remaining_hours);
+                        // Hide selector and start, show Skip and Stop buttons
+                        profileSelect.classList.add('hidden');
+                        startBtn.classList.add('hidden');
+                        skipBtn.classList.remove('hidden');
+                        stopBtn.classList.remove('hidden');
+                    } else {
+                        profileNameEl.textContent = 'Manual';
+                        profileNameEl.className = 'text-sm font-semibold text-gray-400';
+                        profileInfoEl.classList.add('hidden');
+                        // Show selector and Start button, hide Skip and Stop buttons
+                        profileSelect.classList.remove('hidden');
+                        startBtn.classList.remove('hidden');
+                        skipBtn.classList.add('hidden');
+                        stopBtn.classList.add('hidden');
+                    }
+                });
+
+                // Update last updated timestamp
+                document.getElementById('lastUpdated').textContent = new Date(data.timestamp).toLocaleString();
+
+            } catch (error) {
+                console.error("Error fetching temperatures:", error);
+                // showMessageBox('Failed to fetch data. Please check the backend.', 'error');
+            }
+        }
+    </script>
+
+    <!-- Service Worker Registration -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/static/sw.js')
+                    .then(reg => console.log('Service Worker registered:', reg.scope))
+                    .catch(err => console.log('Service Worker registration failed:', err));
+            });
+        }
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Temperature Graph - FermController</title>
+
+    <!-- PWA Meta Tags -->
+    <meta name="theme-color" content="#f97316">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script
+        src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #1a202c;
+        }
+
+        input[type="datetime-local"] {
+            color-scheme: dark;
+        }
+    </style>
+</head>
+
+<body class="min-h-screen p-2 sm:p-4">
+    <div class="bg-gray-800 shadow-xl rounded-xl p-3 sm:p-4 w-full max-w-4xl mx-auto">
+        <h1 class="text-xl sm:text-2xl font-bold text-center text-gray-100 mb-4">Temperature Log</h1>
+
+        <!-- Fermenter Selection -->
+        <div class="mb-4">
+            <label for="fermenterSelect" class="block text-sm font-medium text-gray-300 mb-1">Fermenter</label>
+            <select id="fermenterSelect" class="bg-gray-700 text-white rounded-md w-full p-2">
+                {% for i in range(num_fermenters) %}
+                <option value="{{ i }}">Fermenter {{ i + 1 }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <!-- Quick Range Buttons -->
+        <div class="mb-4">
+            <label class="block text-sm font-medium text-gray-300 mb-1">Quick Range</label>
+            <div class="flex rounded-md shadow-sm" role="group">
+                <button type="button"
+                    class="flex-1 px-2 sm:px-4 py-2 text-sm font-medium text-white bg-gray-700 rounded-l-lg hover:bg-gray-600 focus:z-10 focus:ring-2 focus:ring-blue-500"
+                    data-days="1">1D</button>
+                <button type="button"
+                    class="flex-1 px-2 sm:px-4 py-2 text-sm font-medium text-white bg-gray-700 hover:bg-gray-600 focus:z-10 focus:ring-2 focus:ring-blue-500"
+                    data-days="3">3D</button>
+                <button type="button"
+                    class="flex-1 px-2 sm:px-4 py-2 text-sm font-medium text-white bg-gray-700 hover:bg-gray-600 focus:z-10 focus:ring-2 focus:ring-blue-500"
+                    data-days="7">7D</button>
+                <button type="button"
+                    class="flex-1 px-2 sm:px-4 py-2 text-sm font-medium text-white bg-gray-700 hover:bg-gray-600 focus:z-10 focus:ring-2 focus:ring-blue-500"
+                    data-days="30">30D</button>
+                <button type="button"
+                    class="flex-1 px-2 sm:px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-r-lg hover:bg-blue-500 focus:z-10 focus:ring-2 focus:ring-blue-500"
+                    data-days="all">All</button>
+            </div>
+        </div>
+
+        <!-- Custom Date Range Picker -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+            <div>
+                <label for="startDate" class="block text-sm font-medium text-gray-300 mb-1">Start Date</label>
+                <input type="datetime-local" id="startDate"
+                    class="bg-gray-700 text-white rounded-md w-full p-2 focus:ring-2 focus:ring-blue-500">
+            </div>
+            <div>
+                <label for="endDate" class="block text-sm font-medium text-gray-300 mb-1">End Date</label>
+                <input type="datetime-local" id="endDate"
+                    class="bg-gray-700 text-white rounded-md w-full p-2 focus:ring-2 focus:ring-blue-500">
+            </div>
+        </div>
+
+        <!-- Apply Custom Range Button -->
+        <div class="mb-4">
+            <button id="applyCustomRange"
+                class="w-full px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-500 focus:ring-2 focus:ring-green-400 transition-colors">
+                Apply Custom Range
+            </button>
+        </div>
+
+        <!-- Chart - Full width and taller on mobile -->
+        <div class="bg-gray-700 rounded-lg p-2" style="min-height: 300px;">
+            <canvas id="tempChart"></canvas>
+        </div>
+
+        <a href="/"
+            class="inline-block mt-4 px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors">Back
+            to Dashboard</a>
+    </div>
+
+    <script>
+        const fermenterSelect = document.getElementById('fermenterSelect');
+        const timeRangeButtons = document.querySelectorAll('[role="group"] button');
+        const startDateInput = document.getElementById('startDate');
+        const endDateInput = document.getElementById('endDate');
+        const applyCustomRangeBtn = document.getElementById('applyCustomRange');
+        const ctx = document.getElementById('tempChart').getContext('2d');
+        let chart;
+
+        // Initialize date inputs with defaults
+        function initializeDateInputs() {
+            const now = new Date();
+            const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+
+            // Format for datetime-local input (YYYY-MM-DDTHH:MM)
+            endDateInput.value = formatDateForInput(now);
+            startDateInput.value = formatDateForInput(oneWeekAgo);
+        }
+
+        function formatDateForInput(date) {
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            const hours = String(date.getHours()).padStart(2, '0');
+            const minutes = String(date.getMinutes()).padStart(2, '0');
+            return `${year}-${month}-${day}T${hours}:${minutes}`;
+        }
+
+        function formatDateForAPI(dateString) {
+            // Convert from local datetime-local format to ISO string
+            const date = new Date(dateString);
+            return date.toISOString();
+        }
+
+        async function fetchData(fermenterIndex, startDate, endDate) {
+            let url = `/api/temperature_log/${fermenterIndex}`;
+            const params = new URLSearchParams();
+
+            if (startDate) {
+                params.append('start', formatDateForAPI(startDate));
+            }
+            if (endDate) {
+                params.append('end', formatDateForAPI(endDate));
+            }
+
+            if (params.toString()) {
+                url += '?' + params.toString();
+            }
+
+            const response = await fetch(url);
+            return await response.json();
+        }
+
+        function renderChart(data) {
+            if (chart) {
+                chart.destroy();
+            }
+            chart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    datasets: [{
+                        label: 'Temperature (°C)',
+                        data: data.map(d => ({ x: new Date(d.timestamp), y: d.temperature })),
+                        borderColor: 'rgba(59, 130, 246, 1)',
+                        backgroundColor: 'rgba(59, 130, 246, 0.2)',
+                        fill: true,
+                        tension: 0.4,
+                        pointRadius: window.innerWidth < 640 ? 0 : 3,
+                        borderWidth: window.innerWidth < 640 ? 2 : 3
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: {
+                        intersect: false,
+                        mode: 'index'
+                    },
+                    scales: {
+                        x: {
+                            type: 'time',
+                            time: {
+                                tooltipFormat: 'MMM dd, yyyy, HH:mm',
+                                displayFormats: {
+                                    millisecond: 'MMM dd, HH:mm:ss.SSS',
+                                    second: 'MMM dd, HH:mm:ss',
+                                    minute: 'MMM dd, HH:mm',
+                                    hour: 'MMM dd, HH:mm',
+                                    day: 'MMM dd',
+                                    week: 'MMM dd',
+                                    month: 'MMM yyyy',
+                                    quarter: 'qqq yyyy',
+                                    year: 'yyyy'
+                                }
+                            },
+                            ticks: { color: 'rgb(156, 163, 175)' },
+                            grid: { color: 'rgba(255, 255, 255, 0.1)' }
+                        },
+                        y: {
+                            ticks: { color: 'rgb(156, 163, 175)' },
+                            grid: { color: 'rgba(255, 255, 255, 0.1)' }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            labels: {
+                                color: 'rgb(156, 163, 175)'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        async function updateChart() {
+            const selectedFermenter = fermenterSelect.value;
+            const startDate = startDateInput.value;
+            const endDate = endDateInput.value;
+            const data = await fetchData(selectedFermenter, startDate, endDate);
+            renderChart(data);
+        }
+
+        // Set date range based on quick buttons
+        function setQuickRange(days) {
+            const now = new Date();
+            endDateInput.value = formatDateForInput(now);
+
+            if (days === 'all') {
+                // Set start to 84 days ago (LOG_RETENTION_DAYS)
+                const allTimeStart = new Date(now.getTime() - 84 * 24 * 60 * 60 * 1000);
+                startDateInput.value = formatDateForInput(allTimeStart);
+            } else {
+                const startDate = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
+                startDateInput.value = formatDateForInput(startDate);
+            }
+        }
+
+        // Event Listeners
+        fermenterSelect.addEventListener('change', updateChart);
+
+        timeRangeButtons.forEach(button => {
+            button.addEventListener('click', () => {
+                // Update button styles
+                timeRangeButtons.forEach(btn => {
+                    btn.classList.remove('bg-blue-600');
+                    btn.classList.add('bg-gray-700');
+                });
+                button.classList.remove('bg-gray-700');
+                button.classList.add('bg-blue-600');
+
+                // Set the date range
+                const days = button.dataset.days;
+                setQuickRange(days);
+                updateChart();
+            });
+        });
+
+        applyCustomRangeBtn.addEventListener('click', () => {
+            // Deselect all quick range buttons
+            timeRangeButtons.forEach(btn => {
+                btn.classList.remove('bg-blue-600');
+                btn.classList.add('bg-gray-700');
+            });
+            updateChart();
+        });
+
+        // Initialize and load
+        initializeDateInputs();
+        // Set default to 7D
+        setQuickRange(7);
+        updateChart();
+    </script>
+</body>
+
+</html>
