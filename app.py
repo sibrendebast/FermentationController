@@ -117,6 +117,9 @@ fermenter_profile_start_times = [None] * NUM_FERMENTERS  # ISO timestamp when pr
 fermenter_current_step = [0] * NUM_FERMENTERS  # Current step index in the profile
 fermenter_profile_offsets = [0.0] * NUM_FERMENTERS  # Manual temperature offset when profile is active
 
+# Control mode - can be changed at runtime
+control_mode = CONTROL_MODE  # Initialize from config, can be "bangbang" or "pid"
+
 app = Flask(__name__)
 
 # --- Hardware Abstraction Layer (HAL) ---
@@ -229,7 +232,7 @@ def read_ds18b20_temperature(sensor_id):
 # --- Settings Persistence ---
 def load_settings():
     """Loads settings from the JSON file."""
-    global target_temperatures, fermenter_active_status, fermenter_profiles, fermenter_profile_start_times, fermenter_current_step, fermenter_profile_offsets
+    global target_temperatures, fermenter_active_status, fermenter_profiles, fermenter_profile_start_times, fermenter_current_step, fermenter_profile_offsets, control_mode
     try:
         with open(SETTINGS_FILE, 'r') as f:
             settings = json.load(f)
@@ -266,6 +269,11 @@ def load_settings():
             if isinstance(loaded_offsets, list) and len(loaded_offsets) == NUM_FERMENTERS:
                 fermenter_profile_offsets = loaded_offsets
                 print(f"Loaded fermenter_profile_offsets from {SETTINGS_FILE}")
+            
+            loaded_control_mode = settings.get("control_mode")
+            if loaded_control_mode in ["bangbang", "pid"]:
+                control_mode = loaded_control_mode
+                print(f"Loaded control_mode: {control_mode}")
 
     except FileNotFoundError:
         print(f"{SETTINGS_FILE} not found. Using default settings. File will be created on first setting change.")
@@ -281,7 +289,8 @@ def save_settings():
         "fermenter_active_status": fermenter_active_status,
         "fermenter_profiles": fermenter_profiles,
         "fermenter_profile_start_times": fermenter_profile_start_times,
-        "fermenter_profile_offsets": fermenter_profile_offsets
+        "fermenter_profile_offsets": fermenter_profile_offsets,
+        "control_mode": control_mode
     }
     try:
         with open(SETTINGS_FILE, 'w') as f:
@@ -294,166 +303,7 @@ def save_settings():
 
 
 
-
 # --- Control Logic ---
-
-def control_loop():
-    """
-    Main control loop that runs in a separate thread.
-    Reads temperatures and adjusts chiller/solenoid states.
-    Also logs temperature data.
-    """
-    # Initialize PT100 sensors
-    pt100_sensors = []
-    if not pt100_sensors: # careful not to re-init if loop restarts? well loop is while True
-        print("Initializing PT100 sensors...")
-        for conf in PT100_SENSORS:
-            try:
-                sensor = Max31865Pi(conf['bus'], conf['device'], cs_pin=conf.get('cs_pin'))
-                pt100_sensors.append(sensor)
-            except Exception as e:
-                print(f"Error initializing PT100 sensor {conf}: {e}")
-                pt100_sensors.append(None)
-
-    print("Control loop started.")
-    while True:
-        current_time = datetime.now(timezone.utc)
-
-        # Read current temperatures
-        current_temperatures["glycol_bath"] = read_ds18b20_temperature(GLYCOL_SENSOR_ID)
-
-        for i in range(NUM_FERMENTERS):
-            if i < len(pt100_sensors) and pt100_sensors[i]:
-                temp, status = pt100_sensors[i].get_reading()
-                print(f"PT100 sensor {i}: {temp}°C, {status}")
-                if status == "OK" and temp is not None:
-                     current_temperatures["fermenters"][i] = round(temp, 2)
-                     log_temperature(i, current_time, temp)
-                     # fermenter_active_status[i] = True # Removed auto-activation. User controls this.
-                     # Existing logic updates 'fermenter_active_status' to False if None, but here we might want to respect user setting?
-                     # Existing logic:
-                     # else: current_temperatures["fermenters"][i] = None; fermenter_active_status[i] = False
-                     # I will stick to existing logic for now.
-                else:
-                    print(f"Error reading sensor {i+1}: {status}") 
-                    current_temperatures["fermenters"][i] = None
-                    fermenter_active_status[i] = False # Auto-disable on sensor failure
-            else:
-                # print("error reading sensor") # Reduced noise
-                current_temperatures["fermenters"][i] = None
-                fermenter_active_status[i] = False
-
-
-        # Dynamically set glycol bath target temperature
-        # It should be cooler than the lowest fermenter target temperature by GLYCOL_TARGET_OFFSET.
-        glycol_targets = []
-        if target_temperatures["fermenters"]: # Ensure the list exists
-            for i, target_temp in enumerate(target_temperatures["fermenters"]):
-                # Check if index i is valid for fermenter_active_status and if it's active
-                if fermenter_active_status[i] and current_temperatures["fermenters"][i] is not None:
-                    delta_temp = current_temperatures["fermenters"][i] - target_temp
-                    if current_temperatures["fermenters"][i] > target_temp - TEMP_HYSTERESIS:
-                        glycol_targets.append(target_temp - min([2*delta_temp, GLYCOL_TARGET_OFFSET]))
-        print(glycol_targets)
-
-        if glycol_targets:
-            glycol_target = min(glycol_targets)
-            target_temperatures["glycol_bath"] = max(glycol_target, MIN_GLYCOL_TEMP)
-        else:
-            target_temperatures["glycol_bath"] = None
-
-        # Chiller Control (maintaining glycol bath temperature at its own target)
-        if current_temperatures["glycol_bath"] is not None and target_temperatures["glycol_bath"] is not None:
-            if current_temperatures["glycol_bath"] > target_temperatures["glycol_bath"] + GLYCOL_TEMP_HYSTERESIS:
-                if not chiller_on: # Turn on only if it's currently off
-                    set_chiller_state(True)
-            elif current_temperatures["glycol_bath"] < target_temperatures["glycol_bath"] - GLYCOL_TEMP_HYSTERESIS:
-                if chiller_on: # Turn off only if it's currently on
-                    set_chiller_state(False)
-            # If glycol temperature is within the hysteresis band of its target,
-            # the chiller state remains unchanged to prevent rapid cycling.
-        else:
-            set_chiller_state(False) # Turn chiller off if no temperature reading of chiller of if no target temperature
-            
-        # Fermenter Control (Cooling / Heating)
-        for i in range(NUM_FERMENTERS):
-            # If fermenter is not active, ensure outputs are off
-            if not fermenter_active_status[i] or current_temperatures["fermenters"][i] is None:
-                if solenoid_states[i]:
-                    set_solenoid_state(i, False)
-                if heater_states[i]:
-                    set_heater_state(i, False)
-                continue 
-
-            current_f_temp = current_temperatures["fermenters"][i]
-            
-            # Calculate target temperature from profile if one is active
-            target_f_temp = target_temperatures["fermenters"][i]  # Default to manual target
-            
-            if fermenter_profiles[i] and fermenter_profile_start_times[i]:
-                profile = get_profile_by_id(fermenter_profiles[i])
-                if profile:
-                    step_idx, profile_target, time_remaining = calculate_current_step(
-                        profile, fermenter_profile_start_times[i]
-                    )
-                    if profile_target is not None:
-                        # Check if step changed - if so, reset the offset
-                        if step_idx is not None and step_idx != fermenter_current_step[i]:
-                            if fermenter_profile_offsets[i] != 0.0:
-                                print(f"Fermenter {i+1} step changed ({fermenter_current_step[i]} -> {step_idx}), resetting offset from {fermenter_profile_offsets[i]:+.1f}°C to 0")
-                            fermenter_profile_offsets[i] = 0.0
-                        
-                        # Apply manual offset to profile target
-                        target_f_temp = profile_target + fermenter_profile_offsets[i]
-                        target_temperatures["fermenters"][i] = target_f_temp  # Update for display
-                        fermenter_current_step[i] = step_idx if step_idx is not None else 0
-
-            # Cooling Logic
-            # Verify glycol is available (not None) and colder than fermenter if we want to cool effectively? 
-            # (Strictly speaking, you can open the valve even if glycol is warm, but it won't help much. 
-            #  Checking glycol temp prevents circulating warm glycol.)
-            glycol_temp = current_temperatures["glycol_bath"]
-            can_cool = glycol_temp is not None and glycol_temp < current_f_temp
-
-            if current_f_temp > target_f_temp + TEMP_HYSTERESIS and can_cool:
-                # Too hot -> Cool
-                if not solenoid_states[i]:
-                    print(f"Fermenter {i+1} Cooling ON (T={current_f_temp:.2f}, Target={target_f_temp})")
-                    set_solenoid_state(i, True)
-                if heater_states[i]:
-                    set_heater_state(i, False)
-            
-            elif current_f_temp < target_f_temp:
-                # Reached target (or lower) -> Stop Cooling
-                if solenoid_states[i]:
-                    print(f"Fermenter {i+1} Cooling OFF (T={current_f_temp:.2f}, Target={target_f_temp})")
-                    set_solenoid_state(i, False)
-
-            # Heating Logic
-            if current_f_temp < target_f_temp - TEMP_HYSTERESIS:
-                # Too cold -> Heat
-                if not heater_states[i]:
-                    print(f"Fermenter {i+1} Heating ON (T={current_f_temp:.2f}, Target={target_f_temp})")
-                    set_heater_state(i, True)
-                if solenoid_states[i]:
-                    set_solenoid_state(i, False)
-
-            elif current_f_temp > target_f_temp:
-                # Reached target (or higher) -> Stop Heating
-                if heater_states[i]:
-                    print(f"Fermenter {i+1} Heating OFF (T={current_f_temp:.2f}, Target={target_f_temp})")
-                    set_heater_state(i, False)
-        
-        if any(solenoid_states):
-            set_pump_state(True)
-        else:
-            set_pump_state(False)
-
-
-        time.sleep(READ_INTERVAL_SECONDS)
-
-
-# --- PID Control Loop ---
 
 # Global PID controllers and duty cycle managers (initialized once)
 pid_controllers = [PIDController(PID_PARAMS["Kp"], PID_PARAMS["Ki"], PID_PARAMS["Kd"]) 
@@ -467,14 +317,17 @@ fermenter_heating_duty = [0.0] * NUM_FERMENTERS
 fermenter_cooling_duty = [0.0] * NUM_FERMENTERS
 
 
-def control_loop_pid():
+def control_loop():
     """
-    PID-based control loop with time-proportioned output.
-    Uses 60-second duty cycles for heating/cooling instead of simple on/off.
+    Unified control loop that runs in a separate thread.
+    Checks control_mode each iteration, allowing runtime switching.
+    Supports both 'bangbang' and 'pid' modes.
     """
-    # Initialize PT100 sensors
+    global control_mode
+    
+    # Initialize PT100 sensors once
     pt100_sensors = []
-    print("Initializing PT100 sensors for PID control...")
+    print("Initializing PT100 sensors...")
     for conf in PT100_SENSORS:
         try:
             sensor = Max31865Pi(conf['bus'], conf['device'], cs_pin=conf.get('cs_pin'))
@@ -483,15 +336,20 @@ def control_loop_pid():
             print(f"Error initializing PT100 sensor {conf}: {e}")
             pt100_sensors.append(None)
 
-    print("PID Control loop started.")
+    print("Unified control loop started.")
+    last_mode = None
     
     while True:
         current_time = datetime.now(timezone.utc)
         
-        # Read glycol temperature
+        # Log mode change
+        if control_mode != last_mode:
+            print(f"Control mode: {control_mode}")
+            last_mode = control_mode
+        
+        # --- Read All Temperatures ---
         current_temperatures["glycol_bath"] = read_ds18b20_temperature(GLYCOL_SENSOR_ID)
         
-        # Read fermenter temperatures
         for i in range(NUM_FERMENTERS):
             if i < len(pt100_sensors) and pt100_sensors[i]:
                 temp, status = pt100_sensors[i].get_reading()
@@ -505,26 +363,28 @@ def control_loop_pid():
                 current_temperatures["fermenters"][i] = None
                 fermenter_active_status[i] = False
         
-        # --- PID Control for each fermenter ---
-        cooling_duties = []
+        # --- Calculate Target Temperatures (shared by both modes) ---
         active_targets = []
+        cooling_duties = []  # For PID mode glycol optimization
         
         for i in range(NUM_FERMENTERS):
             current_f_temp = current_temperatures["fermenters"][i]
             
             # Skip inactive or failed fermenters
             if not fermenter_active_status[i] or current_f_temp is None:
-                fermenter_heating_duty[i] = 0
-                fermenter_cooling_duty[i] = 0
                 set_heater_state(i, False)
                 set_solenoid_state(i, False)
-                pid_controllers[i].reset()
+                if control_mode == "pid":
+                    pid_controllers[i].reset()
+                    fermenter_heating_duty[i] = 0
+                    fermenter_cooling_duty[i] = 0
                 cooling_duties.append(0)
                 continue
             
             # Get target temperature (from profile or manual)
             target_f_temp = target_temperatures["fermenters"][i]
             
+            # Apply profile if active
             if fermenter_profiles[i] and fermenter_profile_start_times[i]:
                 profile = get_profile_by_id(fermenter_profiles[i])
                 if profile:
@@ -532,7 +392,7 @@ def control_loop_pid():
                         profile, fermenter_profile_start_times[i]
                     )
                     if profile_target is not None:
-                        # Check if step changed
+                        # Reset offset on step change
                         if step_idx is not None and step_idx != fermenter_current_step[i]:
                             if fermenter_profile_offsets[i] != 0.0:
                                 print(f"Fermenter {i+1} step changed, resetting offset")
@@ -544,73 +404,97 @@ def control_loop_pid():
             
             active_targets.append(target_f_temp)
             
-            # Compute PID output
-            pid_output = pid_controllers[i].compute(target_f_temp, current_f_temp)
-            heating_duty, cooling_duty = pid_output_to_duty_cycles(pid_output)
-            
-            fermenter_heating_duty[i] = heating_duty
-            fermenter_cooling_duty[i] = cooling_duty
-            cooling_duties.append(cooling_duty)
-            
             # Check if glycol is available for cooling
             glycol_temp = current_temperatures["glycol_bath"]
             can_cool = glycol_temp is not None and glycol_temp < current_f_temp
             
-            # Apply time-proportioned output
-            if cooling_duty > 0 and can_cool:
-                should_cool = duty_cycle_managers[i].should_be_on(cooling_duty)
-                set_solenoid_state(i, should_cool)
-                set_heater_state(i, False)
-            elif heating_duty > 0:
-                should_heat = duty_cycle_managers[i].should_be_on(heating_duty)
-                set_heater_state(i, should_heat)
-                set_solenoid_state(i, False)
+            # --- Apply Control Based on Mode ---
+            if control_mode == "pid":
+                # PID Control with time-proportioned output
+                pid_output = pid_controllers[i].compute(target_f_temp, current_f_temp)
+                heating_duty, cooling_duty = pid_output_to_duty_cycles(pid_output)
+                
+                fermenter_heating_duty[i] = heating_duty
+                fermenter_cooling_duty[i] = cooling_duty
+                cooling_duties.append(cooling_duty)
+                
+                if cooling_duty > 0 and can_cool:
+                    should_cool = duty_cycle_managers[i].should_be_on(cooling_duty)
+                    set_solenoid_state(i, should_cool)
+                    set_heater_state(i, False)
+                elif heating_duty > 0:
+                    should_heat = duty_cycle_managers[i].should_be_on(heating_duty)
+                    set_heater_state(i, should_heat)
+                    set_solenoid_state(i, False)
+                else:
+                    set_heater_state(i, False)
+                    set_solenoid_state(i, False)
             else:
-                # Within deadband
-                set_heater_state(i, False)
-                set_solenoid_state(i, False)
+                # Bang-Bang Control with hysteresis
+                cooling_duties.append(0)  # Not used in bangbang mode
+                
+                # Cooling Logic
+                if current_f_temp > target_f_temp + TEMP_HYSTERESIS and can_cool:
+                    if not solenoid_states[i]:
+                        print(f"Fermenter {i+1} Cooling ON (T={current_f_temp:.2f}, Target={target_f_temp})")
+                    set_solenoid_state(i, True)
+                    set_heater_state(i, False)
+                elif current_f_temp < target_f_temp:
+                    if solenoid_states[i]:
+                        print(f"Fermenter {i+1} Cooling OFF (T={current_f_temp:.2f}, Target={target_f_temp})")
+                    set_solenoid_state(i, False)
+                
+                # Heating Logic
+                if current_f_temp < target_f_temp - TEMP_HYSTERESIS:
+                    if not heater_states[i]:
+                        print(f"Fermenter {i+1} Heating ON (T={current_f_temp:.2f}, Target={target_f_temp})")
+                    set_heater_state(i, True)
+                    set_solenoid_state(i, False)
+                elif current_f_temp > target_f_temp:
+                    if heater_states[i]:
+                        print(f"Fermenter {i+1} Heating OFF (T={current_f_temp:.2f}, Target={target_f_temp})")
+                    set_heater_state(i, False)
         
-        # Pump control - on if any solenoid is open
+        # --- Pump Control ---
         if any(solenoid_states):
             set_pump_state(True)
         else:
             set_pump_state(False)
         
-        # --- Dynamic Glycol Setpoint ---
-        if DYNAMIC_GLYCOL_SETPOINT and cooling_duties:
+        # --- Glycol Setpoint ---
+        if control_mode == "pid" and DYNAMIC_GLYCOL_SETPOINT and cooling_duties:
             glycol_target = calculate_dynamic_glycol_target(
-                cooling_duties, 
-                active_targets,
-                MIN_GLYCOL_TEMP,
-                GLYCOL_TARGET_OFFSET
+                cooling_duties, active_targets, MIN_GLYCOL_TEMP, GLYCOL_TARGET_OFFSET
             )
             target_temperatures["glycol_bath"] = glycol_target
         else:
-            # Fall back to fixed offset
+            # Fixed offset mode
             if active_targets:
                 target_temperatures["glycol_bath"] = max(min(active_targets) - GLYCOL_TARGET_OFFSET, MIN_GLYCOL_TEMP)
+            else:
+                target_temperatures["glycol_bath"] = None
         
-        # --- Chiller Control with minimum cycle times ---
+        # --- Chiller Control ---
         glycol_temp = current_temperatures["glycol_bath"]
         glycol_target = target_temperatures["glycol_bath"]
         
-        if glycol_temp is not None:
-            should_chill = chiller_controller.should_turn_on(glycol_temp, glycol_target, GLYCOL_TEMP_HYSTERESIS)
-            set_chiller_state(should_chill)
+        if glycol_temp is not None and glycol_target is not None:
+            if control_mode == "pid":
+                # Use chiller controller with minimum cycle times
+                should_chill = chiller_controller.should_turn_on(glycol_temp, glycol_target, GLYCOL_TEMP_HYSTERESIS)
+                set_chiller_state(should_chill)
+            else:
+                # Simple bang-bang chiller control
+                if glycol_temp > glycol_target + GLYCOL_TEMP_HYSTERESIS:
+                    if not chiller_on:
+                        set_chiller_state(True)
+                elif glycol_temp < glycol_target - GLYCOL_TEMP_HYSTERESIS:
+                    if chiller_on:
+                        set_chiller_state(False)
+        else:
+            set_chiller_state(False)
         
         time.sleep(READ_INTERVAL_SECONDS)
-
-
-def control_loop_wrapper():
-    """
-    Wrapper function that runs the appropriate control loop based on CONTROL_MODE.
-    """
-    if CONTROL_MODE == "pid":
-        print(f"Starting PID control mode (duty cycle: {PID_PARAMS['duty_cycle_seconds']}s)")
-        control_loop_pid()
-    else:
-        print("Starting bang-bang control mode (hysteresis-based)")
-        control_loop()
 
 
 # --- Flask Routes ---
@@ -627,6 +511,37 @@ def index():
 def settings_page():
     """Serves the settings page."""
     return render_template('settings.html')
+
+
+@app.route('/api/control_mode', methods=['GET', 'POST'])
+def manage_control_mode():
+    """
+    GET: Returns current control mode.
+    POST: Changes control mode at runtime (no restart needed).
+    """
+    global control_mode
+    
+    if request.method == 'GET':
+        return jsonify({"control_mode": control_mode})
+    
+    if request.method == 'POST':
+        data = request.get_json()
+        if not data or 'control_mode' not in data:
+            return jsonify({"error": "Missing control_mode"}), 400
+        
+        new_mode = data['control_mode']
+        if new_mode not in ['bangbang', 'pid']:
+            return jsonify({"error": "Invalid control_mode. Must be 'bangbang' or 'pid'."}), 400
+        
+        old_mode = control_mode
+        control_mode = new_mode
+        save_settings()
+        
+        return jsonify({
+            "status": "success",
+            "message": f"Control mode changed from {old_mode} to {new_mode}",
+            "control_mode": control_mode
+        })
 
 @app.route('/api/temperatures', methods=['GET'])
 def get_temperatures():
@@ -1088,7 +1003,7 @@ if __name__ == '__main__':
     setup_gpio()
 
     # Start the control loop in a separate daemon thread
-    control_thread = threading.Thread(target=control_loop_wrapper, daemon=True)
+    control_thread = threading.Thread(target=control_loop, daemon=True)
     control_thread.start()
 
     # Start a background thread to clean up old logs periodically
