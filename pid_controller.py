@@ -198,23 +198,22 @@ def calculate_dynamic_glycol_target(cooling_duties, fermenter_targets, min_glyco
     Returns:
         Optimal glycol target temperature
     """
-    if not cooling_duties or not fermenter_targets:
-        return min_glycol_temp
+
     
     max_cooling_demand = max(cooling_duties)
     
     # Only consider active fermenters (those with cooling demand or near their target)
     active_targets = [t for i, t in enumerate(fermenter_targets) if cooling_duties[i] > 0 or True]
     if not active_targets:
-        return min_glycol_temp + 8  # No active cooling, glycol can be warm
+        return None  # No active cooling, glycol can be warm
     
     lowest_target = min(active_targets)
     
     if max_cooling_demand == 0:
-        # No cooling needed - let glycol warm up
-        target = min_glycol_temp + 8
+        # ABSOLUTELY NO cooling needed - Set target high to ensure chiller stays off
+        target = lowest_target + 5
     elif max_cooling_demand < 30:
-        # Light cooling - glycol can be warmer
+        # Light cooling - glycol can be warmer (more efficient)
         target = lowest_target - 2
     elif max_cooling_demand < 70:
         # Moderate cooling

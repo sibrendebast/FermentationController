@@ -116,6 +116,7 @@ fermenter_profiles = [None] * NUM_FERMENTERS  # Profile ID assigned to each ferm
 fermenter_profile_start_times = [None] * NUM_FERMENTERS  # ISO timestamp when profile started
 fermenter_current_step = [0] * NUM_FERMENTERS  # Current step index in the profile
 fermenter_profile_offsets = [0.0] * NUM_FERMENTERS  # Manual temperature offset when profile is active
+pid_outputs = [0.0] * NUM_FERMENTERS  # Current PID output (-100 to 100)
 
 # Control mode - can be changed at runtime
 control_mode = CONTROL_MODE  # Initialize from config, can be "bangbang" or "pid"
@@ -270,6 +271,11 @@ def load_settings():
                 fermenter_profile_offsets = loaded_offsets
                 print(f"Loaded fermenter_profile_offsets from {SETTINGS_FILE}")
             
+            loaded_current_step = settings.get("fermenter_current_step")
+            if isinstance(loaded_current_step, list) and len(loaded_current_step) == NUM_FERMENTERS:
+                fermenter_current_step = loaded_current_step
+                print(f"Loaded fermenter_current_step from {SETTINGS_FILE}")
+            
             loaded_control_mode = settings.get("control_mode")
             if loaded_control_mode in ["bangbang", "pid"]:
                 control_mode = loaded_control_mode
@@ -289,6 +295,7 @@ def save_settings():
         "fermenter_active_status": fermenter_active_status,
         "fermenter_profiles": fermenter_profiles,
         "fermenter_profile_start_times": fermenter_profile_start_times,
+        "fermenter_current_step": fermenter_current_step,
         "fermenter_profile_offsets": fermenter_profile_offsets,
         "control_mode": control_mode
     }
@@ -412,6 +419,7 @@ def control_loop():
             if control_mode == "pid":
                 # PID Control with time-proportioned output
                 pid_output = pid_controllers[i].compute(target_f_temp, current_f_temp)
+                pid_outputs[i] = pid_output
                 heating_duty, cooling_duty = pid_output_to_duty_cycles(pid_output)
                 
                 fermenter_heating_duty[i] = heating_duty
@@ -577,6 +585,8 @@ def get_temperatures():
         "target_glycol_bath": target_temperatures["glycol_bath"],
         "fermenters": current_temperatures["fermenters"], # This will contain None for disconnected sensors
         "target_fermenters": target_temperatures["fermenters"],
+        "control_mode": control_mode,
+        "pid_outputs": pid_outputs,
         "chiller_on": chiller_on,
         "pump_on": pump_on,
         "solenoid_states": solenoid_states,
@@ -901,7 +911,7 @@ def manage_config():
     """
     # This must be at the top of the function because these variables are read in the GET case
     # and assigned in the POST case.
-    global TEMP_HYSTERESIS, GLYCOL_TEMP_HYSTERESIS, GLYCOL_TARGET_OFFSET, READ_INTERVAL_SECONDS
+    global TEMP_HYSTERESIS, GLYCOL_TEMP_HYSTERESIS, GLYCOL_TARGET_OFFSET, READ_INTERVAL_SECONDS, control_mode
     if request.method == 'GET':
         config_data = {
             "NUM_FERMENTERS": NUM_FERMENTERS,
@@ -917,7 +927,7 @@ def manage_config():
             "GLYCOL_TARGET_OFFSET": GLYCOL_TARGET_OFFSET,
             "READ_INTERVAL_SECONDS": READ_INTERVAL_SECONDS,
             "MIN_GLYCOL_TEMP": MIN_GLYCOL_TEMP,
-            "CONTROL_MODE": CONTROL_MODE,
+            "CONTROL_MODE": control_mode,
             "PID_PARAMS": PID_PARAMS,
             "FERMENTER_CONFIG": FERMENTER_CONFIG
         }
@@ -942,15 +952,33 @@ def manage_config():
             read_interval = int(data['READ_INTERVAL_SECONDS'])
             min_glycol = float(data['MIN_GLYCOL_TEMP'])
             default_glycol_temp = float(data['DEFAULT_TARGET_GLYCOL_TEMP'])
+            
+            # Control mode and PID parameters
+            new_control_mode = data.get('CONTROL_MODE', 'bangbang')
+            if new_control_mode not in ['bangbang', 'pid']:
+                new_control_mode = 'bangbang'
+            
+            # PID parameters (optional, use defaults if not provided)
+            pid_kp = float(data.get('PID_KP', PID_PARAMS.get('Kp', 20.0)))
+            pid_ki = float(data.get('PID_KI', PID_PARAMS.get('Ki', 0.5)))
+            pid_kd = float(data.get('PID_KD', PID_PARAMS.get('Kd', 5.0)))
+            pid_duty_cycle = int(data.get('PID_DUTY_CYCLE', PID_PARAMS.get('duty_cycle_seconds', 60)))
 
             if not (len(solenoid_pins_list) == num_fermenters and len(heater_pins_list) == num_fermenters):
                 return jsonify({"status": "error", "message": "Number of fermenters must match the length of pin lists (solenoids & heaters)."}), 400
 
+            # Update live parameters
             TEMP_HYSTERESIS, GLYCOL_TEMP_HYSTERESIS, GLYCOL_TARGET_OFFSET, READ_INTERVAL_SECONDS = temp_hyst, glycol_hyst, glycol_offset, read_interval
-            print("Live configuration parameters updated.")
+            control_mode = new_control_mode
+            PID_PARAMS['Kp'] = pid_kp
+            PID_PARAMS['Ki'] = pid_ki
+            PID_PARAMS['Kd'] = pid_kd
+            PID_PARAMS['duty_cycle_seconds'] = pid_duty_cycle
+            save_settings()  # Save runtime settings including control_mode
+            print(f"Live configuration parameters updated. Control mode: {control_mode}")
 
             # --- Rewrite app_config.py ---
-            pt100_config_repr = json.dumps(PT100_SENSORS) # Preserve existing PT100 config
+            pt100_config_repr = repr(PT100_SENSORS)  # Preserve existing PT100 config with Python syntax
             config_content = f"""# app_config.py
 # This file is managed by the application's web UI.
 # Manual edits may be overwritten.
@@ -980,6 +1008,21 @@ GLYCOL_TEMP_HYSTERESIS = {glycol_hyst}
 GLYCOL_TARGET_OFFSET = {glycol_offset}
 READ_INTERVAL_SECONDS = {read_interval}
 MIN_GLYCOL_TEMP = {min_glycol}
+
+CONTROL_MODE = "{new_control_mode}"
+
+# PID Controller Parameters
+PID_PARAMS = {{'Kp': {pid_kp}, 'Ki': {pid_ki}, 'Kd': {pid_kd}, 'duty_cycle_seconds': {pid_duty_cycle}}}
+
+# Fermenter-specific configuration
+FERMENTER_CONFIG = {repr(FERMENTER_CONFIG)}
+
+# Glycol chiller protection (prevents short cycling)
+CHILLER_MIN_ON_TIME = {CHILLER_MIN_ON_TIME}   # Minimum on time in seconds
+CHILLER_MIN_OFF_TIME = {CHILLER_MIN_OFF_TIME}  # Minimum off time in seconds
+
+# Dynamic glycol setpoint mode: True = adjust based on demand, False = fixed offset
+DYNAMIC_GLYCOL_SETPOINT = {DYNAMIC_GLYCOL_SETPOINT}
 
 SETTINGS_FILE = '{SETTINGS_FILE}'
 """

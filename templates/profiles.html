@@ -6,11 +6,22 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Fermentation Profiles - FermController</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'brewery-green': '#56C99B',
+                    }
+                }
+            }
+        }
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
     <style>
         body {
             font-family: 'Inter', sans-serif;
-            background-color: #1a202c;
+            background-color: #f5f5f5;
         }
 
         .step-row {
@@ -31,12 +42,13 @@
     </style>
 </head>
 
-<body class="min-h-screen p-4">
+<body class="min-h-screen p-2 sm:p-4">
     <div class="max-w-6xl mx-auto">
-        <header class="flex justify-between items-center mb-6">
-            <h1 class="text-3xl font-bold text-gray-100">Fermentation Profiles</h1>
-            <a href="/" class="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors">
-                ← Back to Dashboard
+        <header class="flex justify-between items-center mb-6 p-4 bg-white border-2 border-black">
+            <h1 class="text-xl sm:text-2xl font-extrabold text-black">Fermentation Profiles</h1>
+            <a href="/"
+                class="px-4 py-2 bg-white border-2 border-black text-black font-bold hover:bg-brewery-green hover:text-white transition-colors">
+                ← Dashboard
             </a>
         </header>
 
@@ -47,36 +59,37 @@
 
         <!-- Create New Profile Button -->
         <button id="createNewBtn"
-            class="w-full md:w-auto px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-500 transition-colors font-semibold mb-6">
+            class="w-full md:w-auto px-6 py-3 bg-brewery-green border-2 border-black text-white font-bold hover:bg-green-400 transition-colors mb-6">
             + Create New Profile
         </button>
 
         <!-- Profile Editor Modal -->
         <div id="editorModal"
             class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div class="bg-gray-800 rounded-xl p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-                <h2 id="editorTitle" class="text-2xl font-bold text-gray-100 mb-4">Edit Profile</h2>
+            <div class="bg-white border-2 border-black p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+                <h2 id="editorTitle" class="text-xl font-extrabold text-black mb-4 pb-2 border-b-2 border-black">Edit
+                    Profile</h2>
 
                 <div class="space-y-4">
                     <div>
-                        <label class="block text-sm font-medium text-gray-300 mb-1">Profile Name</label>
+                        <label class="block text-sm font-bold text-black mb-1">Profile Name</label>
                         <input type="text" id="profileName"
-                            class="bg-gray-700 text-white rounded-md w-full p-2 focus:ring-2 focus:ring-blue-500"
+                            class="bg-white border-2 border-black text-black w-full p-2 focus:ring-2 focus:ring-brewery-green"
                             placeholder="e.g., Belgian Tripel">
                     </div>
 
                     <div>
-                        <label class="block text-sm font-medium text-gray-300 mb-1">Description</label>
+                        <label class="block text-sm font-bold text-black mb-1">Description</label>
                         <textarea id="profileDescription"
-                            class="bg-gray-700 text-white rounded-md w-full p-2 focus:ring-2 focus:ring-blue-500"
+                            class="bg-white border-2 border-black text-black w-full p-2 focus:ring-2 focus:ring-brewery-green"
                             rows="2" placeholder="Brief description of this fermentation profile"></textarea>
                     </div>
 
                     <div>
                         <div class="flex justify-between items-center mb-2">
-                            <label class="block text-sm font-medium text-gray-300">Fermentation Steps</label>
+                            <label class="block text-sm font-bold text-black">Fermentation Steps</label>
                             <button id="addStepBtn"
-                                class="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-500 transition-colors">
+                                class="px-3 py-1 bg-brewery-green border-2 border-black text-white text-sm font-bold hover:bg-green-400 transition-colors">
                                 + Add Step
                             </button>
                         </div>
@@ -88,30 +101,30 @@
 
                     <!-- Quick Add Buttons -->
                     <div>
-                        <label class="block text-sm font-medium text-gray-300 mb-2">Quick Add Common Steps</label>
+                        <label class="block text-sm font-bold text-black mb-2">Quick Add Common Steps</label>
                         <div class="flex flex-wrap gap-2">
                             <button
-                                class="quick-step px-2 py-1 bg-gray-600 text-white text-xs rounded hover:bg-gray-500"
+                                class="quick-step px-2 py-1 bg-gray-100 border-2 border-black text-black text-xs font-bold hover:bg-brewery-green hover:text-white"
                                 data-step='{"name":"Pitch","target_temp":18,"duration_hours":0,"ramp_hours":0}'>Pitch
                                 (18°C)</button>
                             <button
-                                class="quick-step px-2 py-1 bg-gray-600 text-white text-xs rounded hover:bg-gray-500"
+                                class="quick-step px-2 py-1 bg-gray-100 border-2 border-black text-black text-xs font-bold hover:bg-brewery-green hover:text-white"
                                 data-step='{"name":"Primary","target_temp":20,"duration_hours":72,"ramp_hours":0}'>Primary
                                 (20°C, 3d)</button>
                             <button
-                                class="quick-step px-2 py-1 bg-gray-600 text-white text-xs rounded hover:bg-gray-500"
+                                class="quick-step px-2 py-1 bg-gray-100 border-2 border-black text-black text-xs font-bold hover:bg-brewery-green hover:text-white"
                                 data-step='{"name":"Free Rise","target_temp":22,"duration_hours":48,"ramp_hours":24}'>Free
                                 Rise (22°C)</button>
                             <button
-                                class="quick-step px-2 py-1 bg-gray-600 text-white text-xs rounded hover:bg-gray-500"
+                                class="quick-step px-2 py-1 bg-gray-100 border-2 border-black text-black text-xs font-bold hover:bg-brewery-green hover:text-white"
                                 data-step='{"name":"D-Rest","target_temp":18,"duration_hours":48,"ramp_hours":24}'>D-Rest
                                 (18°C)</button>
                             <button
-                                class="quick-step px-2 py-1 bg-gray-600 text-white text-xs rounded hover:bg-gray-500"
+                                class="quick-step px-2 py-1 bg-gray-100 border-2 border-black text-black text-xs font-bold hover:bg-brewery-green hover:text-white"
                                 data-step='{"name":"Acidification","target_temp":35,"duration_hours":48,"ramp_hours":0}'>Acidification
                                 (35°C)</button>
                             <button
-                                class="quick-step px-2 py-1 bg-gray-600 text-white text-xs rounded hover:bg-gray-500"
+                                class="quick-step px-2 py-1 bg-gray-100 border-2 border-black text-black text-xs font-bold hover:bg-brewery-green hover:text-white"
                                 data-step='{"name":"Cold Crash","target_temp":2,"duration_hours":48,"ramp_hours":12}'>Cold
                                 Crash (2°C)</button>
                         </div>
@@ -120,9 +133,9 @@
 
                 <div class="flex justify-end gap-3 mt-6">
                     <button id="cancelBtn"
-                        class="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-500 transition-colors">Cancel</button>
+                        class="px-4 py-2 bg-white border-2 border-black text-black font-bold hover:bg-gray-200 transition-colors">Cancel</button>
                     <button id="saveBtn"
-                        class="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-500 transition-colors">Save
+                        class="px-4 py-2 bg-brewery-green border-2 border-black text-white font-bold hover:bg-green-400 transition-colors">Save
                         Profile</button>
                 </div>
             </div>
@@ -131,15 +144,16 @@
         <!-- Delete Confirmation Modal -->
         <div id="deleteModal"
             class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div class="bg-gray-800 rounded-xl p-6 max-w-md w-full">
-                <h2 class="text-xl font-bold text-gray-100 mb-4">Delete Profile?</h2>
-                <p class="text-gray-300 mb-6">Are you sure you want to delete "<span id="deleteProfileName"></span>"?
+            <div class="bg-white border-2 border-black p-6 max-w-md w-full">
+                <h2 class="text-xl font-extrabold text-black mb-4">Delete Profile?</h2>
+                <p class="text-gray-700 mb-6">Are you sure you want to delete "<span id="deleteProfileName"
+                        class="font-bold"></span>"?
                     This cannot be undone.</p>
                 <div class="flex justify-end gap-3">
                     <button id="cancelDeleteBtn"
-                        class="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-500 transition-colors">Cancel</button>
+                        class="px-4 py-2 bg-white border-2 border-black text-black font-bold hover:bg-gray-200 transition-colors">Cancel</button>
                     <button id="confirmDeleteBtn"
-                        class="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-500 transition-colors">Delete</button>
+                        class="px-4 py-2 bg-red-500 border-2 border-black text-white font-bold hover:bg-red-400 transition-colors">Delete</button>
                 </div>
             </div>
         </div>
@@ -164,21 +178,21 @@
         function renderProfileList() {
             const container = document.getElementById('profileList');
             container.innerHTML = profiles.map(profile => `
-                <div class="bg-gray-800 rounded-lg p-4 border border-gray-700 hover:border-blue-500 transition-colors">
-                    <h3 class="text-lg font-semibold text-gray-100 mb-1">${escapeHtml(profile.name)}</h3>
-                    <p class="text-sm text-gray-400 mb-3">${escapeHtml(profile.description || '')}</p>
-                    <div class="text-xs text-gray-500 mb-3">
+                <div class="bg-white border-2 border-black p-4 hover:shadow-lg transition-shadow">
+                    <h3 class="text-lg font-bold text-black mb-1">${escapeHtml(profile.name)}</h3>
+                    <p class="text-sm text-gray-600 mb-3">${escapeHtml(profile.description || '')}</p>
+                    <div class="text-xs font-medium text-gray-500 mb-3">
                         ${profile.steps.length} steps • ${formatDuration(getTotalDuration(profile))}
                     </div>
                     <div class="flex flex-wrap gap-1 mb-3">
                         ${profile.steps.map(step => `
-                            <span class="px-2 py-1 bg-gray-700 text-gray-300 text-xs rounded">${escapeHtml(step.name)} ${step.target_temp}°C</span>
+                            <span class="px-2 py-1 bg-gray-100 border border-black text-black text-xs font-medium">${escapeHtml(step.name)} ${step.target_temp}°C</span>
                         `).join('')}
                     </div>
                     <div class="flex gap-2">
-                        <button onclick="editProfile('${profile.id}')" class="flex-1 px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-500 transition-colors">Edit</button>
-                        <button onclick="duplicateProfile('${profile.id}')" class="px-3 py-1 bg-gray-600 text-white text-sm rounded hover:bg-gray-500 transition-colors">Copy</button>
-                        <button onclick="showDeleteModal('${profile.id}')" class="px-3 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-500 transition-colors">Delete</button>
+                        <button onclick="editProfile('${profile.id}')" class="flex-1 px-3 py-1 bg-brewery-green border-2 border-black text-white text-sm font-bold hover:bg-green-400 transition-colors">Edit</button>
+                        <button onclick="duplicateProfile('${profile.id}')" class="px-3 py-1 bg-white border-2 border-black text-black text-sm font-bold hover:bg-gray-200 transition-colors">Copy</button>
+                        <button onclick="showDeleteModal('${profile.id}')" class="px-3 py-1 bg-red-500 border-2 border-black text-white text-sm font-bold hover:bg-red-400 transition-colors">Delete</button>
                     </div>
                 </div>
             `).join('');
@@ -228,28 +242,28 @@
             const container = document.getElementById('stepsContainer');
             const index = container.children.length;
             const row = document.createElement('div');
-            row.className = 'step-row bg-gray-700 rounded-lg p-3 flex flex-wrap gap-2 items-center';
+            row.className = 'step-row bg-gray-50 border-2 border-black p-3 flex flex-wrap gap-2 items-center';
             row.innerHTML = `
                 <input type="text" placeholder="Step Name" value="${escapeHtml(step.name || '')}" 
-                    class="step-name bg-gray-600 text-white rounded px-2 py-1 text-sm flex-grow min-w-[100px]">
+                    class="step-name bg-white border-2 border-black text-black px-2 py-1 text-sm flex-grow min-w-[100px]">
                 <div class="flex items-center gap-1">
                     <input type="number" step="0.5" placeholder="Temp" value="${step.target_temp || ''}" 
-                        class="step-temp bg-gray-600 text-white rounded px-2 py-1 text-sm w-16 text-center">
-                    <span class="text-gray-400 text-sm">°C</span>
+                        class="step-temp bg-white border-2 border-black text-black px-2 py-1 text-sm w-16 text-center">
+                    <span class="text-gray-600 text-sm font-bold">°C</span>
                 </div>
                 <div class="flex items-center gap-1">
                     <input type="number" placeholder="Hold" value="${step.duration_hours || 0}" 
-                        class="step-duration bg-gray-600 text-white rounded px-2 py-1 text-sm w-14 text-center">
-                    <span class="text-gray-400 text-sm">h hold</span>
+                        class="step-duration bg-white border-2 border-black text-black px-2 py-1 text-sm w-14 text-center">
+                    <span class="text-gray-600 text-sm font-bold">h hold</span>
                 </div>
                 <div class="flex items-center gap-1">
                     <input type="number" placeholder="Ramp" value="${step.ramp_hours || 0}" 
-                        class="step-ramp bg-gray-600 text-white rounded px-2 py-1 text-sm w-14 text-center">
-                    <span class="text-gray-400 text-sm">h ramp</span>
+                        class="step-ramp bg-white border-2 border-black text-black px-2 py-1 text-sm w-14 text-center">
+                    <span class="text-gray-600 text-sm font-bold">h ramp</span>
                 </div>
-                <button onclick="this.closest('.step-row').remove()" class="px-2 py-1 bg-red-600 text-white rounded hover:bg-red-500 text-sm">✕</button>
-                <button onclick="moveStepUp(this)" class="px-2 py-1 bg-gray-600 text-white rounded hover:bg-gray-500 text-sm">↑</button>
-                <button onclick="moveStepDown(this)" class="px-2 py-1 bg-gray-600 text-white rounded hover:bg-gray-500 text-sm">↓</button>
+                <button onclick="this.closest('.step-row').remove()" class="px-2 py-1 bg-red-500 border-2 border-black text-white font-bold hover:bg-red-400 text-sm">✕</button>
+                <button onclick="moveStepUp(this)" class="px-2 py-1 bg-white border-2 border-black text-black font-bold hover:bg-gray-200 text-sm">↑</button>
+                <button onclick="moveStepDown(this)" class="px-2 py-1 bg-white border-2 border-black text-black font-bold hover:bg-gray-200 text-sm">↓</button>
             `;
             container.appendChild(row);
         }
