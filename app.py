@@ -118,6 +118,9 @@ fermenter_current_step = [0] * NUM_FERMENTERS  # Current step index in the profi
 fermenter_profile_offsets = [0.0] * NUM_FERMENTERS  # Manual temperature offset when profile is active
 pid_outputs = [0.0] * NUM_FERMENTERS  # Current PID output (-100 to 100)
 
+# AoI State
+fermenter_last_valid_read_time = [None] * NUM_FERMENTERS # Timestamp of last valid reading
+
 # Control mode - can be changed at runtime
 control_mode = CONTROL_MODE  # Initialize from config, can be "bangbang" or "pid"
 
@@ -362,13 +365,29 @@ def control_loop():
                 temp, status = pt100_sensors[i].get_reading()
                 if status == "OK" and temp is not None:
                     current_temperatures["fermenters"][i] = round(temp, 2)
+                    fermenter_last_valid_read_time[i] = current_time
                     log_temperature(i, current_time, temp)
                 else:
-                    current_temperatures["fermenters"][i] = None
-                    fermenter_active_status[i] = False
+                    # Sensor read failed or returned error
+                    last_valid = fermenter_last_valid_read_time[i]
+                    if last_valid and (current_time - last_valid).total_seconds() < 60:
+                        # Within 60s AoI window - keep last known good temperature
+                        # Do not log new temperature to avoid gaps or confusion, or log last known?
+                        # For now, we trust the UI to show the stale value, or we could add a flag.
+                        # We keep current_temperatures["fermenters"][i] as provides by last successful read.
+                        pass
+                    else:
+                        # AoI expired, or never read
+                        current_temperatures["fermenters"][i] = None
+                        # fermenter_active_status[i] = False # REMOVED: Do not auto-inactive
             else:
+                 # Sensor object itself missing (init failure)
+                 # Same logic? If sensor was there before and now gone? 
+                 # Unlikely to happen mid-run unless hardware issue. 
+                 # We treat missing sensor obj as immediate failure usually, but could apply AoI too.
+                 # Let's keep simple: if sensor not init, it's None.
                 current_temperatures["fermenters"][i] = None
-                fermenter_active_status[i] = False
+                # fermenter_active_status[i] = False # REMOVED: Do not auto-inactive
         
         # --- Calculate Target Temperatures (shared by both modes) ---
         active_targets = []
