@@ -28,25 +28,25 @@ class Max31865Pi:
         self.is_manual = cs_pin is not None 
         self.rtd_nominal = rtd_nominal
         self.ref_resistor = ref_resistor
-        self.rtd_nominal = rtd_nominal
-        self.ref_resistor = ref_resistor
         self._write_u8(0x00, 0x11 | 0x82) # 50Hz filter, Vbias, Manual/3-wire specific bits if needed
         self.history = collections.deque(maxlen=10) # Moving average buffer
 
     def _write_u8(self, reg, val):
         if self.is_manual:
-            GPIO.output(8, GPIO.HIGH) # Ensure CE0 is quiet
-            GPIO.output(7, GPIO.HIGH) # Ensure CE1 is quiet
+            self.spi.no_cs = True
             GPIO.output(self.cs_pin, GPIO.LOW)
+        else:
+            self.spi.no_cs = False
         self.spi.xfer2([reg | 0x80, val])
         if self.is_manual:
             GPIO.output(self.cs_pin, GPIO.HIGH)
 
     def _read_u16(self, reg):
         if self.is_manual:
-            GPIO.output(8, GPIO.HIGH)
-            GPIO.output(7, GPIO.HIGH)
+            self.spi.no_cs = True
             GPIO.output(self.cs_pin, GPIO.LOW)
+        else:
+            self.spi.no_cs = False
         resp = self.spi.xfer2([reg & 0x7F, 0x00, 0x00])
         if self.is_manual:
             GPIO.output(self.cs_pin, GPIO.HIGH)
